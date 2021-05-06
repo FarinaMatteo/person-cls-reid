@@ -23,7 +23,7 @@ class CustomImageDataset(torch.utils.data.Dataset):
         return len(self.img_labels)
 
     def __getitem__(self, idx):
-        print(self.img_labels.iloc[idx, 0])
+        #print(self.img_labels.iloc[idx, 0])
         folder_path= str(str(self.img_dir) +"/" + str(self.img_labels.iloc[idx, 0]))
         image = []
         for filename in glob.glob(os.path.join(folder_path, '*.jpg')):
@@ -77,10 +77,10 @@ class CustomImageDataset(torch.utils.data.Dataset):
             label = self.target_transform(label)
        
         if(self.transform == None):
-            print("QUAAAA")
+            #print("QUAAAA")
             sample = {"label": label, "image" : image}
         else:
-            print("QUIIIII")
+            #print("QUIIIII")
             sample =  {"label": label, "image" : image}
         return sample
 
@@ -143,18 +143,25 @@ def get_dataset(folder_images, folder_label, transformation):
     increased_dataset = torch.utils.data.ConcatDataset(all_dataset)
     return increased_dataset
 
-def print_image(test):
+def print_images(set, transformation , train):
     k=0
-    while k < len(test):
-        #print(values['label'])
-        values  = test[k]
+    while k < len(set):
+        values  = set[k]
         print(len(values['image']))      
         print(values['image'])
         for i in range(len(values['image'])):
             plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             plt.show()       
-        k = k + 72
+        if (train ==True):
+            k = k + int((len(set) / transformation))
+        else :
+            if (transformation > 0):
+                k = k + int((len(set) / transformation))
+            else :
+                k = k+1
         print("dataset" +str(k))
+    
+    plt.close('all')
 
 def collate_fn(batch):
     images = [data['image'] for data in batch]
