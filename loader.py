@@ -47,11 +47,11 @@ def main():
         
     print("-------------")
 
+    
     for idx, (label, images) in enumerate(dataloader_val):
         print("idx:", idx)
         print("label:", label)
         print("images:", images)
         
-  
 if __name__ == "__main__":
     main()

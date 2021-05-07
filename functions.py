@@ -147,8 +147,8 @@ def print_images(set, transformation , train):
     k=0
     while k < len(set):
         values  = set[k]
-        print(len(values['image']))      
-        print(values['image'])
+        #print(len(values['image']))      
+        #print(values['image'])
         for i in range(len(values['image'])):
             plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             plt.show()       
@@ -164,6 +164,7 @@ def print_images(set, transformation , train):
     plt.close('all')
 
 def collate_fn(batch):
+    #plot_batch(batch)
     images = [data['image'] for data in batch]
     labels = [data['label'] for data in batch]
     label = []
@@ -177,3 +178,14 @@ def collate_fn(batch):
     for item in images:
         image.append(item)
     return label,image
+
+def plot_batch(set):
+    k=0
+    while k < len(set):
+        values  = set[k]
+        for i in range(len(values['image'])):
+            plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
+            plt.show()       
+
+        k = k +1    
+    plt.close('all')
