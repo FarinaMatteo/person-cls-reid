@@ -130,3 +130,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# data directories
+train_directory
+validation_directory
+
+# tensorboard data
+experiments

@@ -1,14 +1,13 @@
-from typing import ItemsView
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
 from numpy.core.shape_base import block
 import torch 
-from torchvision import transforms, datasets
+from torchvision import transforms
 import torchvision
 import pandas as pd
 import os,glob
 from torchvision.io import read_image
-from pathlib import Path
 
 class CustomImageDataset(torch.utils.data.Dataset):
     def __init__(self, annotations_file, img_dir, transform, target_transform=None):
@@ -17,71 +16,35 @@ class CustomImageDataset(torch.utils.data.Dataset):
         self.img_dir = img_dir
         self.transform = transform
         self.target_transform = target_transform
-
         
     def __len__(self):
         return len(self.img_labels)
 
     def __getitem__(self, idx):
-        #print(self.img_labels.iloc[idx, 0])
-        folder_path= str(str(self.img_dir) +"/" + str(self.img_labels.iloc[idx, 0]))
+        folder_path = str(str(self.img_dir) +"/" + str(self.img_labels.iloc[idx, 0]))
         image = []
         for filename in glob.glob(os.path.join(folder_path, '*.jpg')):
             with open(filename, 'r') as f:    
-                image.append(read_image(filename))
-                #break ##--> TO RETURN ONLY ONE IMAGE AND AVOID THE BATCH SIZE PROBLEM IN THE DATALOADER
-        # label = {}
-        # label['age'] = self.img_labels.iloc[idx, 1]
-        # label['backpack'] = self.img_labels.iloc[idx, 2]
-        # label['bag'] = self.img_labels.iloc[idx, 3]
-        # label['handbag'] = self.img_labels.iloc[idx, 4]
-        # label['clothes'] = self.img_labels.iloc[idx, 5]
-        # label['down'] = self.img_labels.iloc[idx, 6]
-        # label['up'] = self.img_labels.iloc[idx, 7]
-        # label['hair'] = self.img_labels.iloc[idx, 8]
-        # label['hat'] = self.img_labels.iloc[idx, 9]
-        # label['gender'] = self.img_labels.iloc[idx, 10]
-        # label['upblack'] = self.img_labels.iloc[idx, 11]
-        # label['upwhite'] = self.img_labels.iloc[idx, 12]
-        # label['upred'] = self.img_labels.iloc[idx, 13]
-        # label['uppurple'] = self.img_labels.iloc[idx, 14]
-        # label['upyellow'] = self.img_labels.iloc[idx, 15]
-        # label['upgray'] = self.img_labels.iloc[idx, 16]
-        # label['upblue'] = self.img_labels.iloc[idx, 17]
-        # label['upgreen'] = self.img_labels.iloc[idx, 18]
-        # label['downblack'] = self.img_labels.iloc[idx, 19]
-        # label['downwhite'] = self.img_labels.iloc[idx, 20]
-        # label['downpink'] = self.img_labels.iloc[idx, 21]
-        # label['downpurple'] = self.img_labels.iloc[idx, 22]
-        # label['downyellow'] = self.img_labels.iloc[idx, 23]
-        # label['downgray'] = self.img_labels.iloc[idx, 24]
-        # label['downblue'] = self.img_labels.iloc[idx, 25]
-        # label['downgreen'] = self.img_labels.iloc[idx, 26]
-        # label['downbrown'] = self.img_labels.iloc[idx, 27]
-
+                tmp_image = read_image(filename)
+                image.append(tmp_image/255)
+                # break ##--> TO RETURN ONLY ONE IMAGE AND AVOID THE BATCH SIZE PROBLEM IN THE DATALOADER
 
         label = []
-
-        for i in range (1,28):
-            label.append(self.img_labels.iloc[idx, i])
+        for i in range (1,30):
+            label.append(self.img_labels.iloc[idx, i]-1)
         
         if self.transform:
-            image1 = image
+            image_tmp = image
             del image
             image = []
-            #print("ci siamo")
-            for item in image1:
-                new = self.transform(item)#transforms.ToPILImage()(item).convert("RGB")
+            for item in image_tmp:
+                new = self.transform(item) # transforms.ToPILImage()(item).convert("RGB")
                 image.append(new)
+        
         if self.target_transform:
             label = self.target_transform(label)
-       
-        if(self.transform == None):
-            #print("QUAAAA")
-            sample = {"label": label, "image" : image}
-        else:
-            #print("QUIIIII")
-            sample =  {"label": label, "image" : image}
+    
+        sample = {"label": label, "image" : image}
         return sample
 
 
@@ -90,9 +53,9 @@ class CustomImageDataset(torch.utils.data.Dataset):
 def get_dataset(folder_images, folder_label, transformation):
 
     all_dataset = []
-    train_dataset0 = CustomImageDataset(folder_label, folder_images, transform= None)
+    train_dataset0 = CustomImageDataset(folder_label, folder_images, transform=None)
     all_dataset.append(train_dataset0)
-    #Real lenght
+    # Real lenght
     # k = 0
     # for i in range(len(train_dataset0)):  
     #     values  = train_dataset0[i]
@@ -101,7 +64,7 @@ def get_dataset(folder_images, folder_label, transformation):
 
     ##FLIP
     if transformation > 0 :
-        train_dataset1 = CustomImageDataset(folder_label, folder_images, transform= transforms.Compose([torchvision.transforms.RandomHorizontalFlip(p=1)]))
+        train_dataset1 = CustomImageDataset(folder_label, folder_images, transform=transforms.Compose([torchvision.transforms.RandomHorizontalFlip(p=1)]))
         transformation -= 1
         all_dataset.append(train_dataset1)
 
@@ -146,9 +109,9 @@ def get_dataset(folder_images, folder_label, transformation):
 def print_images(set, transformation , train):
     k=0
     while k < len(set):
-        values  = set[k]
-        #print(len(values['image']))      
-        #print(values['image'])
+        values = set[k]
+        # print(len(values['image']))      
+        # print(values['image'])
         for i in range(len(values['image'])):
             plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             plt.show()       
@@ -163,29 +126,62 @@ def print_images(set, transformation , train):
     
     plt.close('all')
 
+# def collate_fn(batch):
+#     # plot_batch(batch)
+#     print("This batch has: {} items.\n".format(len(batch)))
+#     images = [data['image'] for data in batch]
+#     labels = [data['label'] for data in batch]
+#     print("\t{} images".format(len(images)))
+#     print("\t{} labels".format(len(labels)))
+    
+#     label = []
+#     for i in range(len(labels[0])):
+#         appo = []
+#         for item in labels:
+#             appo.append(int(item[i]))               
+#         appo = torch.Tensor(appo)
+#         label.append(appo) 
+    
+#     image = []
+#     for item in images:
+#         image.append(item)
+#     return label,image
+
 def collate_fn(batch):
-    #plot_batch(batch)
+    # plot_batch(batch)
+    # list of lists
     images = [data['image'] for data in batch]
+    # flat list
     labels = [data['label'] for data in batch]
-    label = []
-    for i in range(len(labels[0])):
-        appo = []
-        for item in labels:
-            appo.append(int(item[i]))               
-        appo = torch.Tensor(appo)
-        label.append(appo) 
-    image = []
-    for item in images:
-        image.append(item)
-    return label,image
+
+    ret_images = []
+    ret_labels = []
+    for i, image_list in enumerate(images):
+        # list of images for each id
+        for image in image_list:
+            if len(ret_images) == 0:
+                ret_images.append(image.numpy())
+                ret_images = np.array(ret_images)
+            else:
+                ret_images = np.concatenate((ret_images, image.unsqueeze(dim=0).numpy()))
+            ret_labels.append(labels[i])
+
+    ret_images = torch.from_numpy(ret_images)
+    ret_labels = torch.from_numpy(np.array(ret_labels))
+    return ret_images, ret_labels
+
 
 def plot_batch(set):
     k=0
     while k < len(set):
-        values  = set[k]
+        values = set[k]
+        print(f"This batch item has {len(values['image'])} images")
         for i in range(len(values['image'])):
-            plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
-            plt.show()       
+            cv2.imshow(f"Image {i} of batch item {k}", np.transpose(values['image'][i].numpy(), (1, 2, 0)))
+            cv2.waitKey(0)
+            # plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
+            # plt.show()       
 
-        k = k +1    
+        k = k+1    
     plt.close('all')
+    cv2.destroyAllWindows()
