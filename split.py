@@ -11,7 +11,7 @@ import random
 import shutil
 import re
 import pandas as pd
-
+from multicolor import *
 
 #DEFINE GLOBAL VARIABLES
 def split():
@@ -130,6 +130,7 @@ def split():
 
     df2 = pd.read_csv('dataset/annotations_train.csv')
     int_df = pd.merge(df2, df1, how ='inner', on =['id'])
+    int_df = multi_color(int_df)
     int_df.to_csv('csv_files/train_label.csv',index=False)
 
 
@@ -157,6 +158,7 @@ def split():
 
     df2 = pd.read_csv('dataset/annotations_train.csv')
     int_df = pd.merge(df2, df1, how ='inner', on =['id'])
+    int_df = multi_color(int_df)
     int_df.to_csv('csv_files/validation_label.csv',index=False)
 
 
