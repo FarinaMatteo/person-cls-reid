@@ -72,8 +72,8 @@ def split():
             #useless --> to remove  
             print(i)
             i += 1
-            # if i == 100:
-            #     break
+            if i == 100:
+                break
 
     #Group each image based on the ID value
     df = df.groupby('id')['name'].apply(list).reset_index()

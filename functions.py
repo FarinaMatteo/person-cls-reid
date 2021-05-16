@@ -30,7 +30,7 @@ class CustomImageDataset(torch.utils.data.Dataset):
                 # break ##--> TO RETURN ONLY ONE IMAGE AND AVOID THE BATCH SIZE PROBLEM IN THE DATALOADER
 
         label = []
-        for i in range (1,30):
+        for i in range(1,28):
             label.append(self.img_labels.iloc[idx, i]-1)
         
         if self.transform:

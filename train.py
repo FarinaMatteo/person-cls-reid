@@ -37,18 +37,24 @@ def get_optimizer(model, lr, wd, momentum):
   # We will train the final_layer_weights with learning_rate = lr
   # and rest_of_the_net_weights with learning_rate = lr / 10
   
-  optimizer = torch.optim.SGD([
+  optimizer = torch.optim.Adam([
       {'params': rest_of_the_net_weights},
       {'params': final_layer_weights, 'lr': lr}
-  ], lr=lr / 10, weight_decay=wd, momentum=momentum)
+  ], lr=lr / 10, weight_decay=wd)
   
   return optimizer
 
 
-def train(net, loader, cost_fn, optimizer):
+def train(net, loader, cost_fn, optimizer, device='cuda:0'):
     num_samples = 0.0
     total_loss = 0.0
 
+    # select the device according to system hardware
+    if device.startswith("cuda") and torch.cuda.is_available():
+      device = 'cuda:0'
+    else:
+      device = 'cpu'
+    
     # put the network in training mode
     net.train()
     
@@ -56,24 +62,39 @@ def train(net, loader, cost_fn, optimizer):
         # apply a forward pass
         preds = net(images)
         
+        # move tensors onto gpu if needed
+        if device.startswith("cuda"):
+          images = images.to(device)
+          labels = labels.to(device)
+        else:
+          images = images.cpu()
+          labels = labels.cpu()
+        
+        # compute the cross entropy loss for the first 4 predictions (age-related)
+        age_preds = preds[:, :4]
+        age_labels = labels[:, 0]
+        age_loss = cost_fn(age_preds, age_labels)
+        
         # compute losses for the first 12 independent features
-        independent_labels = labels[:12].float()
-        independent_preds = preds[:12]
-        mse_loss = torch.nn.MSELoss()
-        ind_loss = mse_loss(independent_preds, independent_labels)
+        independent_labels = labels[:, 1:10].float()
+        independent_preds = preds[:, 4:13]
+        # normalize preds into 0-1 range with softmax
+        independent_preds = torch.sigmoid(independent_preds)
+        bce_loss = torch.nn.BCELoss()
+        ind_loss = bce_loss(independent_preds, independent_labels)
 
         # compute losses for upper and lower body clothing color
-        ce_loss = torch.nn.CrossEntropyLoss()
-        # upper body cross entropy loss 
-        up_labels = torch.argmax(labels[:, 12:20], dim=1)
-        up_preds = preds[:, 12:20]
-        up_ce_loss = ce_loss(up_preds, up_labels)
-        # lower body cross entropy loss
-        down_labels = torch.argmax(labels[:, 20:], dim=1)
-        down_preds = preds[:, 20:]
-        down_ce_loss = ce_loss(down_preds, down_labels)
+        ## upper body cross entropy loss 
+        up_labels = torch.argmax(labels[:, 10:18], dim=1)
+        up_preds = preds[:, 13:21]
+        up_ce_loss = cost_fn(up_preds, up_labels)
+        ## lower body cross entropy loss
+        down_labels = torch.argmax(labels[:, 18:], dim=1)
+        down_preds = preds[:, 21:]
+        down_ce_loss = cost_fn(down_preds, down_labels)
+
         # compute overall loss
-        loss = up_ce_loss + down_ce_loss + ind_loss
+        loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
         
         # backprop
         loss.backward()
@@ -89,36 +110,58 @@ def train(net, loader, cost_fn, optimizer):
     return total_loss / num_samples
 
 
-def test(net, loader, cost_fn=torch.nn.CrossEntropyLoss()):
+def test(net, loader, cost_fn=torch.nn.CrossEntropyLoss(), device="cuda:0"):
     num_samples = 0.0
     total_loss = 0.0
 
+    # select the device according to system hardware
+    if device.startswith("cuda") and torch.cuda.is_available():
+      device = 'cuda:0'
+    else:
+      device = 'cpu'
+    
     # put the network in evaluation mode
     net.eval()
+    
     # set context manager to avoid gradients computation
     with torch.no_grad():
         for i, (images, labels) in enumerate(loader):
             # apply a forward pass
             preds = net(images)
             
+            # move tensors onto gpu if needed
+            if device.startswith("cuda"):
+              images = images.to(device)
+              labels = labels.to(device)
+            else:
+              images = images.cpu()
+              labels = labels.cpu()
+
+            # compute the cross entropy loss for the first 4 predictions (age-related)
+            age_preds = preds[:, :4]
+            age_labels = labels[:, 0]
+            age_loss = cost_fn(age_preds, age_labels)
+            
             # compute losses for the first 12 independent features
-            independent_labels = labels[:12]
-            independent_preds = preds[:12]
-            mse_loss = torch.nn.MSELoss()
-            ind_loss = mse_loss(independent_preds, independent_labels)
+            independent_labels = labels[:, 1:10].float()
+            independent_preds = preds[:, 4:13]
+            # normalize preds into 0-1 range with softmax
+            independent_preds = torch.sigmoid(independent_preds)
+            bce_loss = torch.nn.BCELoss()
+            ind_loss = bce_loss(independent_preds, independent_labels)
 
             # compute losses for upper and lower body clothing color
             ## upper body cross entropy loss 
-            up_labels = torch.argmax(labels[:, 12:20], dim=1)
-            up_preds = preds[:, 12:20]
+            up_labels = torch.argmax(labels[:, 10:18], dim=1)
+            up_preds = preds[:, 13:21]
             up_ce_loss = cost_fn(up_preds, up_labels)
             ## lower body cross entropy loss
-            down_labels = torch.argmax(labels[:, 20:], dim=1)
-            down_preds = preds[:, 20:]
+            down_labels = torch.argmax(labels[:, 18:], dim=1)
+            down_preds = preds[:, 21:]
             down_ce_loss = cost_fn(down_preds, down_labels)
 
             # compute overall loss
-            loss = up_ce_loss + down_ce_loss + ind_loss
+            loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
             
             # update stats
             num_samples += images.shape[0]
@@ -129,14 +172,14 @@ def test(net, loader, cost_fn=torch.nn.CrossEntropyLoss()):
 
 def classification_train(net, tr_loader, val_loader, cost_fn, optimizer, writer, epochs=20, save_dir="networks/baseline.pth"):
     
-    # training_loss = test(net, tr_loader, cost_fn)
-    # validation_loss = test(net, val_loader, cost_fn)
+    training_loss = test(net, tr_loader, cost_fn)
+    validation_loss = test(net, val_loader, cost_fn)
     
-    # print("Values Before Training:")
-    # print("\tTraining Loss: {:.2f}".format(training_loss))
-    # print("\tValidation Loss: {:.2f}".format(validation_loss))
-    # writer.add_scalar("Loss/training", training_loss, 0)
-    # writer.add_scalar("Loss/validation", validation_loss, 0)
+    print("Values Before Training:")
+    print("\tTraining Loss: {:.2f}".format(training_loss))
+    print("\tValidation Loss: {:.2f}".format(validation_loss))
+    writer.add_scalar("Loss/training", training_loss, 0)
+    writer.add_scalar("Loss/validation", validation_loss, 0)
 
     for e in range(epochs):
         training_loss = train(net, tr_loader, cost_fn, optimizer)

@@ -6,7 +6,7 @@ from split import *
 from functions import *
 from train import classification_train, initialize_alexnet, get_cost_fn, get_optimizer
 
-def main():
+def main(device="cuda:0"):
     folder_label_test = "csv_files/train_label.csv"
     folder_images_test= "train_directory"
     if not os.path.exists(folder_images_test) or len(os.listdir(folder_images_test))==0:
@@ -33,31 +33,23 @@ def main():
    
     print("-------------")
 
-    # for idx, (labels, images) in enumerate(train_loader):
-    #     print("List of Labels: ", type(labels))
-    #     print("List of Images", type(images))
-    #     print("Labels Size: ", labels.shape)
-    #     print("Images Size: ", images.shape)
-    #     for label, image in zip(labels, images):
-    #         print("\"Internal Labels\": ", type(label))
-    #         print("\"Internal Images\": ", type(image))
-    #         break
-
+    # define the writer to monitor data with Tensorboard
     writer = SummaryWriter(log_dir="experiments/baseline")
-    net = initialize_alexnet(num_classes=29)
+    
+    # initialize the network and place it on the correct device according to the system
+    net = initialize_alexnet(num_classes=32)
+    if device.startswith("cuda") and torch.cuda.is_available():
+        net = net.to(device)
+
+    # self explanatory
     optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
     cost_fn = get_cost_fn()
 
-    classification_train(net, train_loader, val_loader, cost_fn, optimizer, writer, epochs=3)
-
+    # start the training pipeline
+    classification_train(net, train_loader, val_loader, cost_fn, optimizer, writer, epochs=15)
         
     print("-------------")
-
-    
-    # for idx, (label, images) in enumerate(val_loader):
-    #     print("idx:", idx)
-    #     print("label:", label)
-    #     print("images:", images)
+    return
         
 if __name__ == "__main__":
     main()
