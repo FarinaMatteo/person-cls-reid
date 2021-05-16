@@ -33,23 +33,12 @@ def main():
    
     print("-------------")
 
-    # for idx, (labels, images) in enumerate(train_loader):
-    #     print("List of Labels: ", type(labels))
-    #     print("List of Images", type(images))
-    #     print("Labels Size: ", labels.shape)
-    #     print("Images Size: ", images.shape)
-    #     for label, image in zip(labels, images):
-    #         print("\"Internal Labels\": ", type(label))
-    #         print("\"Internal Images\": ", type(image))
-    #         break
-
     writer = SummaryWriter(log_dir="experiments/baseline")
-    net = initialize_alexnet(num_classes=29)
+    net = initialize_alexnet(num_classes=32)
     optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
     cost_fn = get_cost_fn()
 
-    classification_train(net, train_loader, val_loader, cost_fn, optimizer, writer, epochs=3)
-
+    classification_train(net, train_loader, val_loader, cost_fn, optimizer, writer, epochs=15)
         
     print("-------------")
 

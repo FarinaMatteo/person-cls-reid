@@ -1,0 +1,26 @@
+CLASSIFICATION TASK
+    1) LOSS FUNCTIONS
+    - Cross Entropy for Upper Body Clothing
+    -     //        for Lower Body Clothing
+    -     //        for Age Attribute  
+    - Binary Cross Entropy for Independent Binary Attributes
+
+    2) NORMALIZATION
+    - mean and std value 4each channel
+    - batch normalization layers
+
+    3) ARCHITECTURES
+    - lenet (with BatchNorm)
+    - alexnet (with BatchNorm) 
+    - resnet (different versions)
+    - googlenet (optional BatchNorm)
+
+    4) PARAMETER TWEAKING AND OPTIMIZER
+    - based on winning nn
+
+    5) ADDITIONAL POINTS
+    - person detector to discard distractor and junk images
+
+REIDENTIFICATION TASK
+    1) TBD
+
