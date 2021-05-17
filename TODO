@@ -1,12 +1,12 @@
 CLASSIFICATION TASK
-    1) LOSS FUNCTIONS
-    - Cross Entropy for Upper Body Clothing
-    -     //        for Lower Body Clothing
-    -     //        for Age Attribute  
-    - Binary Cross Entropy for Independent Binary Attributes
+    1) LOSS FUNCTIONS 
+    - Cross Entropy for Upper Body Clothing                  (done)
+    -     //        for Lower Body Clothing                  (done)
+    -     //        for Age Attribute                        (done)
+    - Binary Cross Entropy for Independent Binary Attributes (done)
 
     2) NORMALIZATION
-    - mean and std value 4each channel
+    - mean and std value 4each channel                       (done)
     - batch normalization layers
 
     3) ARCHITECTURES
@@ -18,8 +18,9 @@ CLASSIFICATION TASK
     4) PARAMETER TWEAKING AND OPTIMIZER
     - based on winning nn
 
-    5) ADDITIONAL POINTS
+    5) ADDITIONAL/OPTIONAL
     - person detector to discard distractor and junk images
+    - precision, recall and f-score
 
 REIDENTIFICATION TASK
     1) TBD
