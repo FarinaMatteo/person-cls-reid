@@ -4,37 +4,40 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.io import image 
 from split import *
 from functions import *
-from train import classification_train, initialize_alexnet, get_cost_fn, get_optimizer
+from train import classification_train, initialize_alexnet, get_optimizer
 
-def main(device="cuda:0"):
-    folder_label_test = "csv_files/train_label.csv"
-    folder_images_test= "train_directory"
-    if not os.path.exists(folder_images_test) or len(os.listdir(folder_images_test))==0:
-        split()
-    
-    transformation = 0
-    test = get_dataset(folder_images_test, folder_label_test, transformation)
 
-    # print_images(test, transformation, train=True)
-
+def main(batch_size=32, device="cuda:0", exp_name="baseline"):
+    # defining folders with data and files with annotations
+    folder_labels_train = "csv_files/train_label.csv"
+    folder_images_train = "train_directory"
+    # ... also for the validation set
     folder_label_val = "csv_files/validation_label.csv"
     folder_images_val= "validation_directory"
-    transformation = 2
-    val = get_dataset(folder_images_val, folder_label_val, transformation)
-
     
-    # print_images(val, transformation , train=False)
+    # creating the Train and Validation sets if needed
+    print("=" * 50)
+    if not os.path.exists(folder_images_train) or len(os.listdir(folder_images_train))==0:
+        print("\nSplitting the whole dataset into Train and Validation sets.\n")
+        split()
+    else:
+        print("\nTrain and Validation sets already exist. No need to recreate them.\n")
+    
+    # creating the datasets based on the output of the previous split(s)
+    transform_list = ["flip", "erasing", "rotation", "color_jitter"]
+    train = get_dataset(folder_images_train, folder_labels_train, transform_list)
+    val = get_dataset(folder_images_val, folder_label_val, transform_list)
 
-        
-    print("-------------")
-
-    train_loader = torch.utils.data.DataLoader(test,batch_size=2, shuffle=True, collate_fn=collate_fn)
-    val_loader = torch.utils.data.DataLoader(val,batch_size=2, shuffle=True, collate_fn=collate_fn)
+    # feedinf the respective dataloaders with the datasets    
+    print("=" * 50)
+    print("\nInitializing Train and Validation DataLoaders...\n")
+    train_loader = torch.utils.data.DataLoader(train, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = torch.utils.data.DataLoader(val, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
    
-    print("-------------")
-
+    print("=" * 50)
+    print("\nInitializing the network and starting the training pipeline...\n")
     # define the writer to monitor data with Tensorboard
-    writer = SummaryWriter(log_dir="experiments/baseline")
+    writer = SummaryWriter(log_dir="experiments/{}".format(exp_name))
     
     # initialize the network and place it on the correct device according to the system
     net = initialize_alexnet(num_classes=32)
@@ -43,12 +46,12 @@ def main(device="cuda:0"):
 
     # self explanatory
     optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
-    cost_fn = get_cost_fn()
 
     # start the training pipeline
-    classification_train(net, train_loader, val_loader, cost_fn, optimizer, writer, epochs=15)
+    classification_train(net, train_loader, val_loader, optimizer, writer)
         
-    print("-------------")
+    print("=" * 50)
+    print("\nTraining finished. Launch 'tensorboard --logdir=experiments' to monitor the learning curves.")
     return
         
 if __name__ == "__main__":

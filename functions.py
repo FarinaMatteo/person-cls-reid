@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from numpy.core.shape_base import block
 import torch 
 from torchvision import transforms
 import torchvision
@@ -50,64 +49,40 @@ class CustomImageDataset(torch.utils.data.Dataset):
 
 # END Functions -------------------------------------------------------------
 
-def get_dataset(folder_images, folder_label, transformation):
+def get_dataset(folder_images, folder_label, transformations):
 
-    all_dataset = []
-    train_dataset0 = CustomImageDataset(folder_label, folder_images, transform=None)
-    all_dataset.append(train_dataset0)
-    # Real lenght
-    # k = 0
-    # for i in range(len(train_dataset0)):  
-    #     values  = train_dataset0[i]
-    #     k = k + int(len(values['image']))
-    # print("Final lenght --> " +str(k))
+    # initialize list of transformations to apply
+    transforms_list = []
+    
+    # FLIP
+    if "flip" in transformations:
+        transforms_list.append(torchvision.transforms.RandomHorizontalFlip())
 
-    ##FLIP
-    if transformation > 0 :
-        train_dataset1 = CustomImageDataset(folder_label, folder_images, transform=transforms.Compose([torchvision.transforms.RandomHorizontalFlip(p=1)]))
-        transformation -= 1
-        all_dataset.append(train_dataset1)
+    # INFORMATION LOSS    
+    if "erasing" in transformations:
+        transforms_list.append(torchvision.transforms.RandomErasing(p=0.1, scale=(0.05, 0.13), ratio=(0.3, 3.3), value=0, inplace=False))
+        transforms_list.append(torchvision.transforms.RandomErasing(p=0.1, scale=(0.05, 0.13), ratio=(0.3, 3.3), value=0, inplace=False))
 
-    ##RANDOM CROP
-    if transformation > 0 :
-        train_dataset2 = CustomImageDataset(folder_label, folder_images, transform=transforms.Compose([torchvision.transforms.RandomResizedCrop(size=(128,64),scale=(0.4,0.5),ratio=(0.75, 1.3333333333333333))]))
-        transformation -= 1
-        all_dataset.append(train_dataset2)
-
-    #INFORMATION LOSS    
-    if transformation > 0 :
-        train_dataset3 = CustomImageDataset(folder_label, folder_images,transform=transforms.Compose([torchvision.transforms.RandomErasing(p=1, scale=(0.05, 0.13), ratio=(0.3, 3.3), value=0, inplace=False),torchvision.transforms.RandomErasing(p=1, scale=(0.05, 0.13), ratio=(0.3, 3.3), value=0, inplace=False)]))
-        transformation -= 1
-        all_dataset.append(train_dataset3)
-
-    #ROTATION
-    if transformation > 0 :
-        train_dataset4 = CustomImageDataset(folder_label, folder_images,transform=transforms.Compose([torchvision.transforms.RandomRotation(15),torchvision.transforms.RandomResizedCrop(size=(128,64),scale=(0.2,0.7),ratio=(0.75, 1.3333333333333333))]))
-        transformation -= 1
-        all_dataset.append(train_dataset4)
-
-
-    #CONTRAST --> to set    
-    if transformation > 0 :
-        train_dataset5 = CustomImageDataset(folder_label, folder_images,transform=transforms.Compose([torchvision.transforms.ColorJitter(contrast=3)]))
-        transformation -= 1
-        all_dataset.append(train_dataset5)
-
+    # ROTATION
+    if "rotation" in transformations:
+        transforms_list.append(torchvision.transforms.RandomRotation(15))
   
-    ##Color shift --> to set
-    if transformation > 0 :
-        train_dataset6 = CustomImageDataset(folder_label, folder_images,transform=transforms.Compose([torchvision.transforms.ColorJitter(brightness=1.2, saturation=1.2)]))
-        transformation -= 1
-        all_dataset.append(train_dataset6)
-   
-    #NOISE
-    ##missing
+    # COLOR JITTER
+    if "color_jitter" in transformations:
+        transforms_list.append(torchvision.transforms.ColorJitter(contrast=1.2, brightness=1.2, saturation=1.2))
 
-    increased_dataset = torch.utils.data.ConcatDataset(all_dataset)
-    return increased_dataset
+    # add mandatory normalization transform
+    transforms_list.append(torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+
+    # NOISE
+    # missing
+   
+    # generate the dataset and return it 
+    return CustomImageDataset(folder_label, folder_images, transform=transforms.Compose(transforms_list))
+
 
 def print_images(set, transformation , train):
-    k=0
+    k = 0
     while k < len(set):
         values = set[k]
         # print(len(values['image']))      
@@ -115,40 +90,22 @@ def print_images(set, transformation , train):
         for i in range(len(values['image'])):
             plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             plt.show()       
-        if (train ==True):
+        if train:
             k = k + int((len(set) / transformation))
-        else :
+        else:
             if (transformation > 0):
                 k = k + int((len(set) / transformation))
-            else :
+            else:
                 k = k+1
         print("dataset" +str(k))
     
     plt.close('all')
 
-# def collate_fn(batch):
-#     # plot_batch(batch)
-#     print("This batch has: {} items.\n".format(len(batch)))
-#     images = [data['image'] for data in batch]
-#     labels = [data['label'] for data in batch]
-#     print("\t{} images".format(len(images)))
-#     print("\t{} labels".format(len(labels)))
-    
-#     label = []
-#     for i in range(len(labels[0])):
-#         appo = []
-#         for item in labels:
-#             appo.append(int(item[i]))               
-#         appo = torch.Tensor(appo)
-#         label.append(appo) 
-    
-#     image = []
-#     for item in images:
-#         image.append(item)
-#     return label,image
 
-def collate_fn(batch):
-    # plot_batch(batch)
+def collate_fn(batch, plot=False):
+    if plot:
+        plot_batch(batch)
+    
     # list of lists
     images = [data['image'] for data in batch]
     # flat list
