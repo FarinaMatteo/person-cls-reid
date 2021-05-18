@@ -72,7 +72,7 @@ def split():
             #useless --> to remove  
             print(i)
             i += 1
-            if i == 100:
+            if i == 10:
                 break
 
     #Group each image based on the ID value
@@ -134,7 +134,7 @@ def split():
     int_df.to_csv('csv_files/train_label.csv',index=False)
 
 
-##THE SAME AS FOR THE TRAIN IS REPETED ALSO FOR THE TRAIN
+##THE SAME AS FOR THE TRAIN IS REPETED ALSO FOR THE VALIDATION
     df1 = pd.DataFrame()
     for i in range(counter,len(random_list)):
         l = df[df['id'] == random_list[i]].to_dict('records')[0]
