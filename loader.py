@@ -4,10 +4,10 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.io import image 
 from split import *
 from functions import *
-from train import classification_train, initialize_alexnet, initialize_resnet50, get_optimizer
+from train import classification_train, initialize_alexnet, initialize_resnet50, initialize_resnet18, initialize_resnet34, get_optimizer
 
 
-def main(network="alexnet", batch_size=32, device="cuda:0", exp_name="baseline"):
+def main(network="alexnet", batch_size=16, device="cuda:0", exp_name="baseline"):
     # defining folders with data and files with annotations
     folder_labels_train = "csv_files/train_label.csv"
     folder_images_train = "train_directory"
@@ -44,6 +44,10 @@ def main(network="alexnet", batch_size=32, device="cuda:0", exp_name="baseline")
         net = initialize_alexnet(num_classes=32)
     elif network=="resnet50":
         net = initialize_resnet50(num_classes=32)
+    elif network=="resnet18":
+        net = initialize_resnet18(num_classes=32)
+    elif network=="resnet34":
+        net = initialize_resnet34(num_classes=32)
     
     if device.startswith("cuda") and torch.cuda.is_available():
         net = net.to(device)
@@ -52,12 +56,13 @@ def main(network="alexnet", batch_size=32, device="cuda:0", exp_name="baseline")
     optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
 
     # start the training pipeline
-    classification_train(net, train_loader, val_loader, optimizer, writer)
+    classification_train(net, train_loader, val_loader, optimizer, writer, save_path=f"networks/{exp_name}/model.pth")
         
     print("=" * 50)
     print("\nTraining finished. Launch 'tensorboard --logdir=experiments' to monitor the learning curves.")
     return
         
 if __name__ == "__main__":
-    main(network="alexnet", exp_name="alexnet_multiloss")
+    main(network="resnet18", exp_name="resnet18_multiloss")
+    main(network="resnet34", exp_name="resnet34_multiloss")
     main(network="resnet50", exp_name="resnet50_multiloss")

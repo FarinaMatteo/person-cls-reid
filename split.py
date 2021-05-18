@@ -23,12 +23,12 @@ def split():
     try:
         shutil.rmtree('train_directory/')
     except FileNotFoundError as exc:
-        print(exc)
+        print("No train directory found on your system, creating one.")
 
     try:
         shutil.rmtree('validation_directory/')
     except FileNotFoundError as exc:
-        print(exc)
+        print("No validation directory found on your system, creating one.")
 
     #INITIALIZE NEW FOLDERS (for validation and train set)
     try:
@@ -70,10 +70,10 @@ def split():
             df = df.append(row, ignore_index=True)
         
             #useless --> to remove  
-            print(i)
-            i += 1
-            if i == 10:
-                break
+            # print(i)
+            # i += 1
+            # if i == 10:
+            #      break
 
     #Group each image based on the ID value
     df = df.groupby('id')['name'].apply(list).reset_index()
@@ -134,7 +134,7 @@ def split():
     int_df.to_csv('csv_files/train_label.csv',index=False)
 
 
-##THE SAME AS FOR THE TRAIN IS REPETED ALSO FOR THE VALIDATION
+    ##THE SAME AS FOR THE TRAIN IS REPETED ALSO FOR THE VALIDATION
     df1 = pd.DataFrame()
     for i in range(counter,len(random_list)):
         l = df[df['id'] == random_list[i]].to_dict('records')[0]

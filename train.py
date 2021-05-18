@@ -1,3 +1,4 @@
+import os
 import torch
 import torchvision
 from torch.nn import functional as F
@@ -20,8 +21,22 @@ def initialize_resnet50(num_classes):
   # load the pre-trained resnet50
   resnet50 = torchvision.models.resnet50(pretrained=True)
   in_features = resnet50.fc.in_features
-  resnet.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+  resnet50.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
   return resnet50
+
+def initialize_resnet18(num_classes):
+  # load the pre-trained resnet18
+  resnet18 = torchvision.models.resnet18(pretrained=True)
+  in_features = resnet18.fc.in_features
+  resnet18.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+  return resnet18
+
+def initialize_resnet34(num_classes):
+  # load the pre-trained resnet50
+  resnet34 = torchvision.models.resnet34(pretrained=True)
+  in_features = resnet34.fc.in_features
+  resnet34.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+  return resnet34
 
 def get_optimizer(model, lr, wd, momentum):
   
@@ -33,7 +48,7 @@ def get_optimizer(model, lr, wd, momentum):
   
   # we will iterate through the layers of the network
   for name, param in model.named_parameters():
-    if name.startswith('classifier.6'):
+    if name.startswith('classifier.6') or name.startswith("fc"):
       final_layer_weights.append(param)
     else:
       rest_of_the_net_weights.append(param)
@@ -88,7 +103,7 @@ def train(net, loader, optimizer, device='cuda:0'):
         age_labels = labels[:, 0]
         age_loss = ce_loss(age_preds, age_labels)
         
-        # compute losses for the first 12 independent features
+        # compute losses for the first 9 independent features
         independent_labels = labels[:, 1:10].float()
         independent_preds = preds[:, 4:13]
         # normalize preds into 0-1 range with softmax
@@ -97,12 +112,13 @@ def train(net, loader, optimizer, device='cuda:0'):
 
         # compute losses for upper and lower body clothing color
         ## upper body cross entropy loss 
-        up_labels = torch.argmax(labels[:, 10:18], dim=1)
-        up_preds = preds[:, 13:21]
+        up_labels = torch.argmax(labels[:, 10:19], dim=1)
+        up_preds = preds[:, 13:22]
         up_ce_loss = ce_loss(up_preds, up_labels)
+
         ## lower body cross entropy loss
-        down_labels = torch.argmax(labels[:, 18:], dim=1)
-        down_preds = preds[:, 21:]
+        down_labels = torch.argmax(labels[:, 19:], dim=1)
+        down_preds = preds[:, 22:]
         down_ce_loss = ce_loss(down_preds, down_labels)
 
         # compute overall loss
@@ -203,7 +219,7 @@ def test(net, loader, device="cuda:0"):
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100, total_age_acc/num_samples*100, (total_rest_acc/(num_samples*9))*100
 
 
-def classification_train(net, tr_loader, val_loader, optimizer, writer, epochs=20, save_dir="networks/baseline.pth"):
+def classification_train(net, tr_loader, val_loader, optimizer, writer, epochs=30, save_path="networks/baseline.pth", patience=5):
     
     training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = test(net, tr_loader)
     validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader)
@@ -231,6 +247,8 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer, epochs=2
     writer.add_scalar("Accuracy/validation/age_accuracy", val_age_acc, 0)
     writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, 0)
     
+    es_epochs = 0
+    best_loss = 1_000_000_000_000
     for e in range(epochs):
         training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = train(net, tr_loader, optimizer)
         validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader)
@@ -258,7 +276,21 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer, epochs=2
         writer.add_scalar("Accuracy/validation/age_accuracy", val_age_acc, e+1)
         writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, e+1)
 
-    torch.save(net.state_dict(), save_dir)
+        # early stopping check, if no loss improvement with respect to the best loss value, update the counter
+        if validation_loss > best_loss:
+            es_epochs += 1
+        # otherwise, if loss has improved, update the best loss value and make sure to reset the counter!
+        else:
+            es_epochs = 0
+            best_loss = validation_loss
+        # check against the patience and exit due to early stopping conditions
+        if es_epochs > patience:
+          print("Early Stopping has been triggered. Exiting the training pipeline.")
+          break
+
+    if not os.path.exists(os.path.dirname(save_path)):
+        os.makedirs(os.path.dirname(save_path))
+    torch.save(net.state_dict(), save_path)
     return net
 
 
