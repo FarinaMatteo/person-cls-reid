@@ -1,6 +1,7 @@
 import torch
 import torchvision
 from torch.nn import functional as F
+from torchvision.models import resnet
 
 def initialize_alexnet(num_classes):
   # load the pre-trained Alexnet
@@ -14,6 +15,13 @@ def initialize_alexnet(num_classes):
                                           out_features=num_classes)
   
   return alexnet
+
+def initialize_resnet50(num_classes):
+  # load the pre-trained resnet50
+  resnet50 = torchvision.models.resnet50(pretrained=True)
+  in_features = resnet50.fc.in_features
+  resnet.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+  return resnet50
 
 def get_optimizer(model, lr, wd, momentum):
   

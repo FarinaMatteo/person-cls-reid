@@ -4,10 +4,10 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.io import image 
 from split import *
 from functions import *
-from train import classification_train, initialize_alexnet, get_optimizer
+from train import classification_train, initialize_alexnet, initialize_resnet50, get_optimizer
 
 
-def main(batch_size=32, device="cuda:0", exp_name="baseline"):
+def main(network="alexnet", batch_size=32, device="cuda:0", exp_name="baseline"):
     # defining folders with data and files with annotations
     folder_labels_train = "csv_files/train_label.csv"
     folder_images_train = "train_directory"
@@ -40,7 +40,11 @@ def main(batch_size=32, device="cuda:0", exp_name="baseline"):
     writer = SummaryWriter(log_dir="experiments/{}".format(exp_name))
     
     # initialize the network and place it on the correct device according to the system
-    net = initialize_alexnet(num_classes=32)
+    if network=="alexnet":
+        net = initialize_alexnet(num_classes=32)
+    elif network=="resnet50":
+        net = initialize_resnet50(num_classes=32)
+    
     if device.startswith("cuda") and torch.cuda.is_available():
         net = net.to(device)
 
@@ -55,4 +59,5 @@ def main(batch_size=32, device="cuda:0", exp_name="baseline"):
     return
         
 if __name__ == "__main__":
-    main()
+    main(network="alexnet", exp_name="alexnet_multiloss")
+    main(network="resnet50", exp_name="resnet50_multiloss")
