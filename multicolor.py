@@ -39,4 +39,8 @@ def multi_color(df):
     df['upmulticolor'] = up
     df['downmulticolor'] = down
 
+    df = df[["id", "age", "backpack", "bag", "handbag", "clothes", "down", "up", "hair", "hat", "gender",\
+            "upblack", "upwhite", "upred", "uppurple", "upyellow", "upgray", "upblue", "upgreen", "upmulticolor", \
+            "downblack", "downwhite", "downpink", "downpurple", "downyellow", "downgray", "downblue", "downgreen", "downbrown", "downmulticolor"]]
+
     return df

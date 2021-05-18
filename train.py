@@ -29,15 +29,15 @@ def get_optimizer(model, lr, wd, momentum):
       final_layer_weights.append(param)
     else:
       rest_of_the_net_weights.append(param)
-  
+
   # so now we have divided the network weights into two groups.
   # We will train the final_layer_weights with learning_rate = lr
   # and rest_of_the_net_weights with learning_rate = lr / 10
   
-  optimizer = torch.optim.Adam([
+  optimizer = torch.optim.SGD([
       {'params': rest_of_the_net_weights},
       {'params': final_layer_weights, 'lr': lr}
-  ], lr=lr / 10, weight_decay=wd)
+  ], lr=lr / 10, weight_decay=wd, momentum=momentum)
   
   return optimizer
 
@@ -105,6 +105,7 @@ def train(net, loader, optimizer, device='cuda:0'):
         
         # optimize and reset
         optimizer.step()
+        
         optimizer.zero_grad()
         
         # update stats
@@ -160,7 +161,7 @@ def test(net, loader, device="cuda:0"):
             age_labels = labels[:, 0]
             age_loss = ce_loss(age_preds, age_labels)
             
-            # compute losses for the first 12 independent features
+            # compute losses for the first 9 independent features
             independent_labels = labels[:, 1:10].float()
             independent_preds = preds[:, 4:13]
             # normalize preds into 0-1 range with softmax
@@ -169,12 +170,13 @@ def test(net, loader, device="cuda:0"):
 
             # compute losses for upper and lower body clothing color
             ## upper body cross entropy loss 
-            up_labels = torch.argmax(labels[:, 10:18], dim=1)
-            up_preds = preds[:, 13:21]
+            up_labels = torch.argmax(labels[:, 10:19], dim=1)
+            up_preds = preds[:, 13:22]
             up_ce_loss = ce_loss(up_preds, up_labels)
+
             ## lower body cross entropy loss
-            down_labels = torch.argmax(labels[:, 18:], dim=1)
-            down_preds = preds[:, 21:]
+            down_labels = torch.argmax(labels[:, 19:], dim=1)
+            down_preds = preds[:, 22:]
             down_ce_loss = ce_loss(down_preds, down_labels)
 
             # compute overall loss
