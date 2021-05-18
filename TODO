@@ -10,9 +10,9 @@ CLASSIFICATION TASK
     - batch normalization layers
 
     3) ARCHITECTURES
-    - lenet (with BatchNorm)
-    - alexnet (with BatchNorm) 
-    - resnet (different versions)
+    - lenet (with BatchNorm)                                 (unfeasible, you'll lose imagenet pretrained weights)
+    - alexnet (with BatchNorm)                               (unfeasible, you'll lose imagenet pretrained weights)
+    - resnet (different versions)                            (done)
     - googlenet (optional BatchNorm)
 
     4) PARAMETER TWEAKING AND OPTIMIZER

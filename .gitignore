@@ -135,5 +135,8 @@ dmypy.json
 train_directory
 validation_directory
 
+# tensorboard data
+experiments
+
 # large weight files
 *.pth

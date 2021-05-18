@@ -1,8 +1,7 @@
 import os
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.io import image 
-from split import *
+from split import split
 from functions import *
 from train import classification_train, initialize_alexnet, initialize_resnet50, initialize_resnet18, initialize_resnet34, get_optimizer
 

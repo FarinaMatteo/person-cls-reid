@@ -1,8 +1,6 @@
 import os
 import torch
 import torchvision
-from torch.nn import functional as F
-from torchvision.models import resnet
 
 def initialize_alexnet(num_classes):
   # load the pre-trained Alexnet
