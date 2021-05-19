@@ -110,7 +110,7 @@ class CustomImageDataset(torch.utils.data.Dataset):
             # load the label based on the person id
             label = self.img_labels.loc[(self.img_labels["id"]==person_id)]
             label = label.to_numpy()
-            label = torch.from_numpy(label).squeeze()[1:]
+            label = torch.from_numpy(label).squeeze()[1:] - 1
             
             if self.transform:
                 img = self.transform(img)

@@ -11,6 +11,7 @@ def main(network="alexnet", batch_size=16,
         batch_mode="id", max_images=None,
         train_split=0.8, avg_loss=True,
         device="cuda:0", exp_name="baseline"):
+    
     assert batch_mode in ("id", "img")
 
     # defining folders with data and files with annotations
@@ -71,7 +72,8 @@ def main(network="alexnet", batch_size=16,
     optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
 
     # start the training pipeline
-    classification_train(net, train_loader, val_loader, optimizer, avg_loss, writer, save_path=f"networks/{exp_name}/model.pth")
+    classification_train(net, train_loader, val_loader, optimizer, writer, \
+                         avg_loss=avg_loss, epochs=1, save_path=f"networks/{exp_name}/model.pth", patience=5)
         
     print("=" * 100)
     print("\nTraining finished. Launch 'tensorboard --logdir=experiments' to monitor the learning curves.\n")

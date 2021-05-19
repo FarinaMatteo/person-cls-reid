@@ -121,7 +121,7 @@ def train(net, loader, optimizer, avg_loss=True, device='cuda:0'):
         loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
         # normalize loss based on settings
         if avg_loss:
-            loss /= 4
+            loss /= 4.0
 
         # backprop
         loss.backward()
@@ -208,7 +208,7 @@ def test(net, loader, avg_loss=True, device="cuda:0"):
             loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
             # normalize loss based on settings
             if avg_loss:
-                loss /= 4
+                loss /= 4.0
 
             # update stats for loss
             num_samples += images.shape[0]
@@ -226,8 +226,8 @@ def test(net, loader, avg_loss=True, device="cuda:0"):
 
 def classification_train(net, tr_loader, val_loader, optimizer, writer, avg_loss=True, epochs=30, save_path="networks/baseline.pth", patience=5):
 
-    training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = test(net, tr_loader, avg_loss)
-    validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader, avg_loss)
+    training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = test(net, tr_loader, avg_loss=avg_loss)
+    validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader, avg_loss=avg_loss)
 
     print("=" * 100, "\n")
     print("Values Before Training:")
@@ -255,8 +255,8 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer, avg_loss
     es_epochs = 0
     best_loss = 1_000_000_000_000
     for e in range(epochs):
-        training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = train(net, tr_loader, optimizer, avg_loss)
-        validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader, avg_loss)
+        training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc = train(net, tr_loader, optimizer, avg_loss=avg_loss)
+        validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc = test(net, val_loader, avg_loss=avg_loss)
 
         print("=" * 100, "\n")
         print("Values After Training Epoch {}".format(e+1))
