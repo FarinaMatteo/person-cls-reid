@@ -75,6 +75,8 @@ def train(net, loader, optimizer, avg_loss=True, device='cuda:0'):
     # select the device according to system hardware
     if device.startswith("cuda") and torch.cuda.is_available():
         device = 'cuda:0'
+        ce_loss = ce_loss.to(device)
+        bce_loss = bce_loss.to(device)
     else:
         device = 'cpu'
 
@@ -160,6 +162,8 @@ def test(net, loader, avg_loss=True, device="cuda:0"):
     # select the device according to system hardware
     if device.startswith("cuda") and torch.cuda.is_available():
         device = 'cuda:0'
+        ce_loss = ce_loss.to(device)
+        bce_loss = bce_loss.to(device)
     else:
         device = 'cpu'
 
