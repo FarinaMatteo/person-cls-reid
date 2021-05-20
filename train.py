@@ -1,42 +1,80 @@
 import os
 import torch
 import torchvision
+from torchvision.models.densenet import densenet121
 
-def initialize_alexnet(num_classes):
+def set_parameter_requires_grad(model):
+    for param in model.parameters():
+        param.requires_grad = False
+
+def initialize_alexnet(num_classes, feature_extracting=False):
     # load the pre-trained Alexnet
     alexnet = torchvision.models.alexnet(pretrained=True)
 
     # get the number of neurons in the penultimate layer
     in_features = alexnet.classifier[6].in_features
 
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=alexnet)
+    
     # re-initalize the output layer
     alexnet.classifier[6] = torch.nn.Linear(in_features=in_features,
                                         out_features=num_classes)
 
     return alexnet
 
-def initialize_resnet50(num_classes):
+def initialize_resnet50(num_classes, feature_extracting=False):
     # load the pre-trained resnet50
     resnet50 = torchvision.models.resnet50(pretrained=True)
     in_features = resnet50.fc.in_features
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=resnet50)
     resnet50.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
     return resnet50
 
-def initialize_resnet18(num_classes):
+def initialize_resnet18(num_classes, feature_extracting=False):
     # load the pre-trained resnet18
     resnet18 = torchvision.models.resnet18(pretrained=True)
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=resnet18)
     in_features = resnet18.fc.in_features
     resnet18.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
     return resnet18
 
-def initialize_resnet34(num_classes):
+def initialize_resnet101(num_classes, feature_extracting=False):
+    # load the pre-trained resnet101
+    resnet101 = torchvision.models.resnet101(pretrained=True)
+    in_features = resnet101.fc.in_features
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=resnet101)
+    resnet101.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+    return resnet101
+
+def initialize_resnet34(num_classes, feature_extracting=False):
     # load the pre-trained resnet50
     resnet34 = torchvision.models.resnet34(pretrained=True)
     in_features = resnet34.fc.in_features
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=resnet34)
     resnet34.fc = torch.nn.Linear(in_features=in_features, out_features=num_classes)
     return resnet34
 
-def get_optimizer(model, lr, wd, momentum):
+def initialize_densenet(num_classes, feature_extracting=False):
+    # load the pretrained network
+    densenet = torchvision.models.densenet121(pretrained=True)
+    in_features = densenet.classifier.in_features
+    # freeze the backbone if feature extracting
+    if feature_extracting:
+        set_parameter_requires_grad(model=densenet)  
+    densenet.classifier = torch.nn.Linear(in_features=in_features, out_features=num_classes)
+    return densenet
+
+def get_optimizer(model, lr, wd, momentum, net_name):
     # we will create two groups of weights, one for the newly initialized layer
     # and the other for rest of the layers of the network
     final_layer_weights = []
@@ -44,7 +82,9 @@ def get_optimizer(model, lr, wd, momentum):
 
     # we will iterate through the layers of the network
     for name, param in model.named_parameters():
-        if name.startswith('classifier.6') or name.startswith("fc"):
+        if (name.startswith('classifier.6') and net_name=="alexnet") \
+        or (name.startswith("fc") and net_name.startswith("resnet")) \
+        or (name.startswith("classifier") and net_name=="densenet"):    
             final_layer_weights.append(param)
         else:
             rest_of_the_net_weights.append(param)
@@ -119,11 +159,11 @@ def train(net, loader, optimizer, avg_loss=True, device='cuda:0'):
         down_preds = preds[:, 22:]
         down_ce_loss = ce_loss(down_preds, down_labels)
 
-        # compute overall loss
-        loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
         # normalize loss based on settings
         if avg_loss:
-            loss /= 4.0
+            loss = 0.375*up_ce_loss + 0.417*down_ce_loss + 0.041*ind_loss + 0.167*age_loss
+        else:
+            loss = up_ce_loss + down_ce_loss + ind_loss + age_loss 
 
         # backprop
         loss.backward()
@@ -208,11 +248,11 @@ def test(net, loader, avg_loss=True, device="cuda:0"):
             down_preds = preds[:, 22:]
             down_ce_loss = ce_loss(down_preds, down_labels)
 
-            # compute overall loss
-            loss = up_ce_loss + down_ce_loss + ind_loss + age_loss
             # normalize loss based on settings
             if avg_loss:
-                loss /= 4.0
+                loss = 0.375*up_ce_loss + 0.417*down_ce_loss + 0.041*ind_loss + 0.167*age_loss
+            else:
+                loss = up_ce_loss + down_ce_loss + ind_loss + age_loss 
 
             # update stats for loss
             num_samples += images.shape[0]
@@ -286,7 +326,7 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer, avg_loss
         writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, e+1)
 
         # early stopping check, if no loss improvement with respect to the best loss value, update the counter
-        if validation_loss > best_loss:
+        if validation_loss >= best_loss:
             es_epochs += 1
         # otherwise, if loss has improved, update the best loss value and make sure to reset the counter!
         else:
