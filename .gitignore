@@ -140,3 +140,6 @@ experiments
 
 # large weight files
 *.pth
+
+# generated labels for training and validation sets
+csv_files/*.csv
