@@ -16,7 +16,7 @@ CLASSIFICATION TASK
     - googlenet (optional BatchNorm)
 
     4) PARAMETER TWEAKING AND OPTIMIZER
-    - based on winning nn
+    - based on winning nn (finetuning vs feature_extraction, docs here: https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html)
 
     5) ADDITIONAL/OPTIONAL
     - person detector to discard distractor and junk images

@@ -4,15 +4,17 @@ from split import split
 from functions import *
 import multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
-from train import classification_train, initialize_alexnet, initialize_resnet50, initialize_resnet18, initialize_resnet34, get_optimizer
+from train import classification_train, initialize_alexnet,\
+                  initialize_resnet50, initialize_resnet18, initialize_resnet34, initialize_resnet101, initialize_densenet, get_optimizer
 
 
-def main(network="alexnet", batch_size=16,
-        batch_mode="id", max_images=None,
-        train_split=0.8, avg_loss=True,
-        device="cuda:0", exp_name="baseline"):
+def main(network="alexnet", batch_size=16, batch_mode="id", 
+        train_mode="finetune", max_images=None, train_split=0.8, 
+        avg_loss=True, device="cuda:0", exp_name="baseline"):
     
     assert batch_mode in ("id", "img")
+    assert train_mode in ("finetune", "feature_extract")
+    feature_extracting = not (train_mode == "finetune")
 
     # defining folders with data and files with annotations
     folder_labels_train = "csv_files/train_label.csv"
@@ -23,13 +25,10 @@ def main(network="alexnet", batch_size=16,
     
     # creating the Train and Validation sets if needed
     print("=" * 100)
-    if not os.path.exists(folder_images_train) or len(os.listdir(folder_images_train))==0:
-        print("\nSplitting the whole dataset into Train and Validation sets.")
-        print("Your current configuration is:\n\tTrain split: {}\n\tMax Images:{}\n".format(train_split, max_images))
-        split(train_split=train_split, max_images=max_images)
-    else:
-        print("\nTrain and Validation sets already exist. No need to recreate them.\n")
-    
+    print("\nSplitting the whole dataset into Train and Validation sets.")
+    print("Your current configuration is:\n\tTrain split: {}\n\tMax Images: {}\n".format(train_split, max_images))
+    split(train_split=train_split, max_images=max_images)
+
     # access elements by idx in the fs
     if batch_mode=="img":
         flatten_folder(folder_images_train)
@@ -57,29 +56,36 @@ def main(network="alexnet", batch_size=16,
     
     # initialize the network and place it on the correct device according to the system
     if network=="alexnet":
-        net = initialize_alexnet(num_classes=32)
+        net = initialize_alexnet(num_classes=32, feature_extracting=feature_extracting)
     elif network=="resnet50":
-        net = initialize_resnet50(num_classes=32)
+        net = initialize_resnet50(num_classes=32, feature_extracting=feature_extracting)
     elif network=="resnet18":
-        net = initialize_resnet18(num_classes=32)
+        net = initialize_resnet18(num_classes=32, feature_extracting=feature_extracting)
     elif network=="resnet34":
-        net = initialize_resnet34(num_classes=32)
-    
+        net = initialize_resnet34(num_classes=32, feature_extracting=feature_extracting)
+    elif network=="resnet101":
+        net = initialize_resnet101(num_classes=32, feature_extracting=feature_extracting)
+    elif network=="densenet":
+        net = initialize_densenet(num_classes=32, feature_extracting=feature_extracting)
     if device.startswith("cuda") and torch.cuda.is_available():
         net = net.to(device)
 
     # self explanatory
-    optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009)
-
-    # start the training pipeline
+    optimizer = get_optimizer(net, lr=0.001, wd=1e-4, momentum=0.0009, net_name=network)
     classification_train(net, train_loader, val_loader, optimizer, writer, \
-                         avg_loss=avg_loss, epochs=1, save_path=f"networks/{exp_name}/model.pth", patience=5)
+                         avg_loss=avg_loss, epochs=100, save_path=f"networks/{exp_name}/model.pth", patience=5)
         
     print("=" * 100)
     print("\nTraining finished. Launch 'tensorboard --logdir=experiments' to monitor the learning curves.\n")
     return
         
 if __name__ == "__main__":
-    main(network="resnet18", batch_mode="img", exp_name="resnet18_avgmultiloss")
-    main(network="resnet34", batch_mode="img", exp_name="resnet34_avgmultiloss")
-    main(network="resnet50", batch_mode="img", exp_name="resnet50_avgmultiloss")
+    # main(network="resnet18", batch_mode="img", exp_name="resnet18_weighted_multiloss_img", batch_size=128, max_images=1000)
+    # main(network="resnet34", batch_mode="img", exp_name="resnet34_weighted_multiloss_img", batch_size=128, max_images=1000)
+    # main(network="resnet50", batch_mode="img", exp_name="resnet50_weighted_multiloss_img", batch_size=128, max_images=1000)
+    # main(network="resnet101", batch_mode="img", exp_name="resnet101_weighted_multiloss_img", batch_size=128, max_images=1000)
+    main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img", batch_size=128, max_images=2000)
+    main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img_feature_extract", batch_size=128, max_images=2000, train_mode="feature_extract")
+
+
+
