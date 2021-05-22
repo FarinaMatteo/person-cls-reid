@@ -1,8 +1,7 @@
 import os
-from numpy.core.defchararray import add
 import torch
-from torch import optim
 import torchvision
+import torch.nn.functional as F
 from functions import set_parameter_requires_grad
 from models.custom import DeepAttentionClassifier
 
@@ -181,12 +180,12 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         # compute losses for upper and lower body clothing color
         # upper body cross entropy loss
         up_labels = torch.argmax(labels[:, 10:19], dim=1)
-        up_preds = preds[:, 13:22]
+        up_preds = F.softmax(preds[:, 13:22], dim=1)
         up_ce_loss = ce_loss(up_preds, up_labels)
 
         # lower body cross entropy loss
         down_labels = torch.argmax(labels[:, 19:], dim=1)
-        down_preds = preds[:, 22:]
+        down_preds = F.softmax(preds[:, 22:], dim=1)
         down_ce_loss = ce_loss(down_preds, down_labels)
 
         # normalize loss based on settings
@@ -275,12 +274,12 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
             # compute losses for upper and lower body clothing color
             # upper body cross entropy loss
             up_labels = torch.argmax(labels[:, 10:19], dim=1)
-            up_preds = preds[:, 13:22]
+            up_preds = F.softmax(preds[:, 13:22], dim=1)
             up_ce_loss = ce_loss(up_preds, up_labels)
 
             # lower body cross entropy loss
             down_labels = torch.argmax(labels[:, 19:], dim=1)
-            down_preds = preds[:, 22:]
+            down_preds = F.softmax(preds[:, 22:], dim=1)
             down_ce_loss = ce_loss(down_preds, down_labels)
 
             # normalize loss based on settings
