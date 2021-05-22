@@ -218,3 +218,7 @@ def plot_batch(set):
         k = k+1    
     plt.close('all')
     cv2.destroyAllWindows()
+
+def set_parameter_requires_grad(model):
+    for param in model.parameters():
+        param.requires_grad = False

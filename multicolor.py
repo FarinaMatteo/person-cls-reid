@@ -1,7 +1,3 @@
-import pandas as pd
-
-
-
 def get_down(row):
     check = True
     for k,v in row.items():
@@ -23,7 +19,6 @@ def multi_color(df):
     up = []
     down = []
     for i in range(len(df)):
-        #print(df.iloc[i])
         a = df.iloc[i].to_dict()
         c_up = get_up(a)
         c_down = get_down(a)
