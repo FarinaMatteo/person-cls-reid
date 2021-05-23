@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torch.nn as nn
+from torchvision.transforms.transforms import RandomEqualize
 
 class AttentionModule(nn.Module):
 
@@ -11,16 +12,35 @@ class AttentionModule(nn.Module):
     # shape. Finally, softmax is applied in order to provide a distribution over all the grid locations that
     # should serve as the Attention Map.
 
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, n_steps=2):
         super(AttentionModule, self).__init__()
-        self.upsample = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels//2, kernel_size=3, padding=1)
-        self.downsample = nn.Conv2d(in_channels=in_channels//2, out_channels=in_channels, kernel_size=3, padding=1)
+        self.upsamples = []
+        self.downsamples = []
+        upsample_inchannels = in_channels
+        upsample_outchannels = in_channels//2
+        for i in range(n_steps):
+            self.upsamples.append(nn.ConvTranspose2d(in_channels=upsample_inchannels, out_channels=upsample_outchannels, kernel_size=3))
+            upsample_inchannels = upsample_outchannels
+            upsample_outchannels = upsample_inchannels//2
+        
+        downsample_inchannels = in_channels // (2**n_steps)
+        downsample_outchannels = downsample_inchannels * 2
+        for i in range(n_steps):
+            self.downsamples.append(nn.Conv2d(in_channels=downsample_inchannels, out_channels=downsample_outchannels, kernel_size=3))
+            downsample_inchannels *= 2
+            downsample_outchannels *= 2
+        
+        # self.upsample = nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels//2, kernel_size=3, padding=1)
+        # self.downsample = nn.Conv2d(in_channels=in_channels//2, out_channels=in_channels, kernel_size=3, padding=1)
 
     def forward(self, x):
-        x = self.upsample(x)
-        x = torch.sigmoid(x)
-        x = self.downsample(x)
-        B, C, H, W = x.shape
+        for i in range(len(self.upsamples)):
+            x = self.upsamples[i](x)
+            x = torch.sigmoid(x)
+        for i in range(len(self.downsamples)):
+            x = self.downsamples[i](x)
+            x = torch.sigmoid(x)
+        B, _, H, W = x.shape
         x = torch.mean(x, dim=1)  # average along channels dimension
         x = torch.softmax(x.view(B, -1), dim=1)  # produce [0,1] attention map along the flattened dimension
         x = x.view(B, H, W)
