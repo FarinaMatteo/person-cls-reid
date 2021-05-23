@@ -37,7 +37,7 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
         flatten_folder(folder_images_val)
     
     # creating the datasets based on the output of the previous split(s)
-    transform_list = ["flip", "erasing", "rotation", "color_jitter"]
+    transform_list = ["double", "flip", "erasing", "rotation", "color_jitter"]
     train = get_dataset(folder_images_train, folder_labels_train, transform_list, batch_mode)
     val = get_dataset(folder_images_val, folder_label_val, transform_list, batch_mode)
 
@@ -77,6 +77,7 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
 
     # self explanatory
     optimizer = get_optimizer(net, lr=0.1, wd=1e-4, momentum=0.09, net_name=network)
+    
     summary(net, (3, 128, 64))
     classification_train(net, train_loader, val_loader, optimizer, writer, \
                          norm_loss=norm_loss, avg_loss=avg_loss, epochs=100, save_path=f"networks/{exp_name}/model.pth", patience=5)
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     # main(network="resnet101", batch_mode="img", exp_name="resnet101_weighted_multiloss_img", batch_size=128, max_images=1000)
     # main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img", batch_size=128, max_images=2000)
     # main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img_feature_extract", batch_size=128, max_images=2000, train_mode="feature_extract")
-    main(network="attentionnet", batch_size=8, batch_mode="img", train_mode="feature_extract", max_images=5000, exp_name="attention_net")
+    main(network="attentionnet", batch_size=8, batch_mode="img", train_mode="feature_extract", max_images=10, exp_name="attention_net")
 
 
 

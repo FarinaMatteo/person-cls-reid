@@ -18,8 +18,7 @@ def initialize_alexnet(num_classes, feature_extracting=False):
         set_parameter_requires_grad(model=alexnet)
     
     # re-initalize the output layer
-    alexnet.classifier[6] = torch.nn.Linear(in_features=in_features,
-                                        out_features=num_classes)
+    alexnet.classifier[6] = torch.nn.Linear(in_features=in_features, out_features=num_classes)
 
     return alexnet
 
@@ -123,7 +122,7 @@ def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
             {'params': rest_of_the_net_weights},
             {'params': final_layer_weights, 'lr':lr}
         ], lr=lr/10, weight_decay=wd, momentum=momentum)
-
+    
 
 def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0'):
     
@@ -180,12 +179,12 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         # compute losses for upper and lower body clothing color
         # upper body cross entropy loss
         up_labels = torch.argmax(labels[:, 10:19], dim=1)
-        up_preds = F.softmax(preds[:, 13:22], dim=1)
+        up_preds = preds[:, 13:22]
         up_ce_loss = ce_loss(up_preds, up_labels)
 
         # lower body cross entropy loss
         down_labels = torch.argmax(labels[:, 19:], dim=1)
-        down_preds = F.softmax(preds[:, 22:], dim=1)
+        down_preds = preds[:, 22:]
         down_ce_loss = ce_loss(down_preds, down_labels)
 
         # normalize loss based on settings
@@ -307,13 +306,20 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
 
 
 def classification_train(net, tr_loader, val_loader, optimizer, writer,
-                        norm_loss=True, avg_loss=False, epochs=30, save_path="networks/baseline.pth", patience=5):
+                        scheduler_mode="min", norm_loss=True, avg_loss=False, 
+                        epochs=30, save_path="networks/baseline.pth", patience=5):
 
     assert not (norm_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
-
+    assert scheduler_mode in ("min", "max"), "Scheduler mode must be set either to 'min' or 'max'."
+    
+    # define the learning rate scheduler
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode=scheduler_mode, patience=patience//2)
+    
+    # check the random behaviour before training
     training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc = test(net, tr_loader, norm_loss=norm_loss, avg_loss=avg_loss)
     validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc = test(net, val_loader, norm_loss=norm_loss, avg_loss=avg_loss)
 
+    # print data and add data to tensorboard for further monitoring
     print("=" * 100, "\n")
     print("Values Before Training:")
     print("\tTraining Loss: {:.4f}".format(training_loss))
@@ -341,12 +347,24 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
     writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, 0)
     writer.add_scalar("Accuracy/validation/average_accuracy", val_avg_acc, 0)
 
+    # set variables needed for the Early Stopping mechanism
     es_epochs = 0
     best_loss = 1_000_000_000_000
+    
+    # start the training loop, process the whole dataset 'epochs' times
     for e in range(epochs):
+        
+        # training and validation step
         training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc = train(net, tr_loader, optimizer, norm_loss=norm_loss, avg_loss=avg_loss)
         validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc = test(net, val_loader, norm_loss=norm_loss, avg_loss=avg_loss)
+        
+        # use the scheduler to update the learning rate after the training step
+        if scheduler_mode == "min":
+            scheduler.step(validation_loss)
+        elif scheduler_mode == "max":
+            scheduler.step(val_avg_acc)
 
+        # still, print out data to monitor the training (and also confirm everything is still working and nothing has crashed...)
         print("=" * 100, "\n")
         print("Epoch {}/{}\n".format(e+1, epochs))
         print("Values After Training Epoch {}".format(e+1))

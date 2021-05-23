@@ -13,14 +13,22 @@ CLASSIFICATION TASK
     - lenet (with BatchNorm)                                 (unfeasible, you'll lose imagenet pretrained weights)
     - alexnet (with BatchNorm)                               (unfeasible, you'll lose imagenet pretrained weights)
     - resnet (different versions)                            (done)
-    - googlenet (optional BatchNorm)
+    - densenet                                               (done)
 
-    4) PARAMETER TWEAKING AND OPTIMIZER
+    4) ATTENTION
+    - custom attention maps stacked to a common backbone     (done)
+    
+    5) PARAMETER TWEAKING AND OPTIMIZER
     - based on winning nn (finetuning vs feature_extraction, docs here: https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html)
+                                                             (done)
 
-    5) ADDITIONAL/OPTIONAL
+    6) ADDITIONAL/OPTIONAL
     - person detector to discard distractor and junk images
     - precision, recall and f-score
+
+    7) ??? Implement Random Forest Classifier ???
+    8) Generate 'classification_test.csv'
+
 
 REIDENTIFICATION TASK
     1) TBD

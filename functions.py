@@ -127,12 +127,20 @@ class CustomImageDataset(torch.utils.data.Dataset):
 
 def get_dataset(folder_images, folder_label, transformations, batch_mode):
 
+    # make sure only valid inputs are given
+    for t_name in transformations:
+        assert t_name in ("double", "flip", "erasing", "rotation", "color_jitter"), f"{t_name} is not a supported transformation. Please check."
+
     # initialize list of transformations to apply
     transforms_list = []
     
+    # double the size of the original picture. Useful for bigger and more meaningful attention maps, but slows the forward process down.
+    if "double" in transformations:
+        transforms_list.append(torchvision.transforms.Resize(size=(256, 128)))
+
     # FLIP
     if "flip" in transformations:
-        transforms_list.append(torchvision.transforms.RandomHorizontalFlip())
+        transforms_list.append(torchvision.transforms.RandomHorizontalFlip(p=0.2))
 
     # INFORMATION LOSS    
     if "erasing" in transformations:
@@ -148,10 +156,7 @@ def get_dataset(folder_images, folder_label, transformations, batch_mode):
         transforms_list.append(torchvision.transforms.ColorJitter(contrast=1.2, brightness=1.2, saturation=1.2))
 
     # add mandatory normalization transform
-    transforms_list.append(torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-
-    # NOISE
-    # missing
+    transforms_list.append(torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))  # ImageNet values
    
     # generate the dataset and return it 
     return CustomImageDataset(folder_label, folder_images, transform=transforms.Compose(transforms_list), batch_mode=batch_mode)
@@ -218,6 +223,7 @@ def plot_batch(set):
         k = k+1    
     plt.close('all')
     cv2.destroyAllWindows()
+
 
 def set_parameter_requires_grad(model):
     for param in model.parameters():
