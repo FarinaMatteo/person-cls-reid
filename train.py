@@ -210,12 +210,12 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
         total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
         # update stats for bc accuracy
-        total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()
+        total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9
 
-    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+(total_rest_acc/9))/4)/num_samples)*100
+    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
 
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, (total_rest_acc/(num_samples*9))*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
 
 
 def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
@@ -297,12 +297,12 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
             total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
             total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
             # update stats for bc accuracy
-            total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()
+            total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9
 
-    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+(total_rest_acc/9))/4)/num_samples)*100
+    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
 
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, (total_rest_acc/(num_samples*9))*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
 
 
 def classification_train(net, tr_loader, val_loader, optimizer, writer,
