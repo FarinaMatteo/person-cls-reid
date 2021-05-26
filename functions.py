@@ -125,8 +125,7 @@ class CustomImageDataset(torch.utils.data.Dataset):
 
 # END Functions -------------------------------------------------------------
 
-def get_dataset(folder_images, folder_label, transformations, batch_mode):
-
+def get_transforms(transformations):
     # make sure only valid inputs are given
     for t_name in transformations:
         assert t_name in ("double", "flip", "erasing", "rotation", "color_jitter"), f"{t_name} is not a supported transformation. Please check."
@@ -157,7 +156,11 @@ def get_dataset(folder_images, folder_label, transformations, batch_mode):
 
     # add mandatory normalization transform
     transforms_list.append(torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))  # ImageNet values
-   
+    return transforms_list
+
+
+def get_dataset(folder_images, folder_label, transformations, batch_mode):
+    transforms_list = get_transforms(transformations)
     # generate the dataset and return it 
     return CustomImageDataset(folder_label, folder_images, transform=transforms.Compose(transforms_list), batch_mode=batch_mode)
 

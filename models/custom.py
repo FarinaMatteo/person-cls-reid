@@ -102,6 +102,17 @@ class DeepAttentionClassifier(nn.Module):
         y = torch.cat(tensors=(y_bin, y_up, y_down), dim=1)
         return y
 
+    def inference(self, x):
+        preds = self(x)
+        age_preds = preds[:, :4]
+        age_preds = torch.argmax(age_preds, dim=1, keepdim=True)
+        independent_preds = preds[:, 4:13].round()
+        up_preds = preds[:, 13:22]
+        up_preds = torch.argmax(up_preds, dim=1, keepdim=True)
+        down_preds = preds[:, 22:]
+        down_preds = torch.argmax(down_preds, dim=1, keepdim=True)
+        return torch.cat(tensors=(age_preds, independent_preds, up_preds, down_preds), dim=1) + 1
+
 
 if __name__ == "__main__":
     img_tensor = torchvision.io.read_image("train_directory/0002_c3_027735928.jpg")/255
