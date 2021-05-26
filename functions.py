@@ -112,6 +112,12 @@ class CustomImageDataset(torch.utils.data.Dataset):
             label = label.to_numpy()
             label = torch.from_numpy(label).squeeze()[1:] - 1
             
+            # one hot encoding of the age attribute for binary crosse entropy
+            age = label[0]
+            age_label = torch.zeros(4)
+            age_label[age] = 1
+            label = torch.cat((age_label, label[1:]))
+
             if self.transform:
                 img = self.transform(img)
             

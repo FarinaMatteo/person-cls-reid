@@ -37,7 +37,7 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
         flatten_folder(folder_images_val)
     
     # creating the datasets based on the output of the previous split(s)
-    transform_list = ["double", "flip", "erasing", "rotation", "color_jitter"]
+    transform_list = ["flip", "erasing", "rotation", "color_jitter"]
     train = get_dataset(folder_images_train, folder_labels_train, transform_list, batch_mode)
     val = get_dataset(folder_images_val, folder_label_val, transform_list, batch_mode)
 
@@ -76,7 +76,7 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
         net = net.to(device)
 
     # self explanatory
-    optimizer = get_optimizer(net, lr=0.1, wd=1e-4, momentum=0.09, net_name=network)
+    optimizer = get_optimizer(net, lr=0.0001, wd=5e-4, momentum=0.009, net_name=network, optim_name="Adam")
     
     summary(net, (3, 128, 64))
     classification_train(net, train_loader, val_loader, optimizer, writer, \
@@ -93,7 +93,31 @@ if __name__ == "__main__":
     # main(network="resnet101", batch_mode="img", exp_name="resnet101_weighted_multiloss_img", batch_size=128, max_images=1000)
     # main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img", batch_size=128, max_images=2000)
     # main(network="densenet", batch_mode="img", exp_name="densenet_weighted_multiloss_img_feature_extract", batch_size=128, max_images=2000, train_mode="feature_extract")
-    main(network="attentionnet", batch_size=8, batch_mode="img", train_mode="feature_extract", max_images=10, exp_name="attention_net")
+    
+    main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="finetune", 
+       norm_loss=False, avg_loss=True, max_images=5000, exp_name="1updown_residual-attention_net_avg-loss_5000")
+    
+    main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="finetune", 
+       norm_loss=True, avg_loss=False, max_images=5000, exp_name="1updown_residual-attention_net_weighted-loss_5000")
+
+    # main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="finetune", 
+    #     norm_loss=True, avg_loss=False, max_images=None, exp_name="attention_net_norm-multiloss_finetune_bn")
+    
+    # main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #    norm_loss=False, avg_loss=True, max_images=None, exp_name="attention_net_avg-multiloss_feature-extract_bn")
+    # main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #     norm_loss=True, avg_loss=False, max_images=None, exp_name="attention_net_norm-multiloss_feature-extract_bn")
+    
+    
+    # main(network="alexnet", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #     norm_loss=True, avg_loss=False, max_images=5000, exp_name="alexnet_norm-multiloss")
+    # main(network="alexnet", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #     norm_loss=False, avg_loss=True, max_images=5000, exp_name="alexnet_avg-multiloss")
+    
+    # main(network="resnet50", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #     norm_loss=True, avg_loss=False, max_images=5000, exp_name="resnet50_norm-multiloss")
+    # main(network="resnet50", batch_size=128, batch_mode="img", train_mode="feature_extract", 
+    #     norm_loss=False, avg_loss=True, max_images=5000, exp_name="resnet50_avg-multiloss")
 
 
 

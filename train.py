@@ -87,7 +87,7 @@ def initialize_attention_classifier(pretrained=True, feature_extracting=True):
 
 def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
     assert optim_name in ("SGD", "RMSprop", "Adam")
-    assert net_name in ("alexnet", "resnet", "densenet", "attentionnet")
+    assert net_name in ("alexnet", "densenet", "attentionnet") or net_name.startswith("resnet")
 
     # we will create two groups of weights, one for the newly initialized layer
     # and the other for rest of the layers of the network
@@ -111,7 +111,7 @@ def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
         return torch.optim.SGD([
             {'params': rest_of_the_net_weights},
             {'params': final_layer_weights, 'lr': lr}
-        ], lr=lr/10, weight_decay=wd, momentum=momentum)
+        ], lr=lr/10, weight_decay=wd, momentum=momentum, nesterov=True)
     elif optim_name == "Adam":
         return torch.optim.Adam([
             {'params': rest_of_the_net_weights},
@@ -163,29 +163,29 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
 
         # apply a forward pass
         preds = net(images)
-
         # compute the cross entropy loss for the first 4 predictions (age-related)
         age_preds = preds[:, :4]
-        age_labels = labels[:, 0]
-        age_loss = ce_loss(age_preds, age_labels)
+        age_labels = labels[:, :4]
+        age_loss = bce_loss(age_preds, age_labels)
 
         # compute losses for the first 9 independent features
-        independent_labels = labels[:, 1:10].float()
         independent_preds = preds[:, 4:13]
+        independent_labels = labels[:, 4:13]
         # normalize preds into 0-1 range with softmax
-        independent_preds = torch.sigmoid(independent_preds)
         ind_loss = bce_loss(independent_preds, independent_labels)
 
         # compute losses for upper and lower body clothing color
         # upper body cross entropy loss
-        up_labels = torch.argmax(labels[:, 10:19], dim=1)
+        # up_labels = torch.argmax(labels[:, 10:19], dim=1)
         up_preds = preds[:, 13:22]
-        up_ce_loss = ce_loss(up_preds, up_labels)
+        up_labels = labels[:, 13:22]
+        up_ce_loss = bce_loss(up_preds, up_labels)
 
         # lower body cross entropy loss
-        down_labels = torch.argmax(labels[:, 19:], dim=1)
+        # down_labels = torch.argmax(labels[:, 19:], dim=1)
         down_preds = preds[:, 22:]
-        down_ce_loss = ce_loss(down_preds, down_labels)
+        down_labels = labels[:, 22:]
+        down_ce_loss = bce_loss(down_preds, down_labels)
 
         # normalize loss based on settings
         if norm_loss:
@@ -206,16 +206,19 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         num_samples += images.shape[0]
         total_loss += loss.item()
         # update stats for accuracies (cross-entropy losses)
-        total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
-        total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
-        total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
+        # total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
+        # total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
+        # total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
         # update stats for bc accuracy
-        total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()
+        total_age_acc += age_preds.round().eq(age_labels).sum().item()/4.
+        total_up_acc += up_preds.round().eq(up_labels).sum().item()/9.
+        total_down_acc += down_preds.round().eq(down_labels).sum().item()/10.
+        total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9.
 
-    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+(total_rest_acc/9))/4)/num_samples)*100
+    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
 
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, (total_rest_acc/(num_samples*9))*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
 
 
 def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
@@ -258,28 +261,30 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
 
             # apply a forward pass
             preds = net(images)
+           
             # compute the cross entropy loss for the first 4 predictions (age-related)
             age_preds = preds[:, :4]
-            age_labels = labels[:, 0]
-            age_loss = ce_loss(age_preds, age_labels)
+            age_labels = labels[:, :4]
+            age_loss = bce_loss(age_preds, age_labels)
 
             # compute losses for the first 9 independent features
-            independent_labels = labels[:, 1:10].float()
             independent_preds = preds[:, 4:13]
+            independent_labels = labels[:, 4:13]
             # normalize preds into 0-1 range with softmax
-            independent_preds = torch.sigmoid(independent_preds)
             ind_loss = bce_loss(independent_preds, independent_labels)
 
             # compute losses for upper and lower body clothing color
             # upper body cross entropy loss
-            up_labels = torch.argmax(labels[:, 10:19], dim=1)
-            up_preds = F.softmax(preds[:, 13:22], dim=1)
-            up_ce_loss = ce_loss(up_preds, up_labels)
+            # up_labels = torch.argmax(labels[:, 10:19], dim=1)
+            up_preds = preds[:, 13:22]
+            up_labels = labels[:, 13:22]
+            up_ce_loss = bce_loss(up_preds, up_labels)
 
             # lower body cross entropy loss
-            down_labels = torch.argmax(labels[:, 19:], dim=1)
-            down_preds = F.softmax(preds[:, 22:], dim=1)
-            down_ce_loss = ce_loss(down_preds, down_labels)
+            # down_labels = torch.argmax(labels[:, 19:], dim=1)
+            down_preds = preds[:, 22:]
+            down_labels = labels[:, 22:]
+            down_ce_loss = bce_loss(down_preds, down_labels)
 
             # normalize loss based on settings
             if norm_loss:
@@ -293,16 +298,19 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
             num_samples += images.shape[0]
             total_loss += loss.item()
             # update stats for accuracies (cross-entropy losses)
-            total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
-            total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
-            total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
+            # total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
+            # total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
+            # total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
             # update stats for bc accuracy
-            total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()
+            total_age_acc += age_preds.round().eq(age_labels).sum().item()/4.
+            total_up_acc += up_preds.round().eq(up_labels).sum().item()/9.
+            total_down_acc += down_preds.round().eq(down_labels).sum().item()/10.
+            total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9.
 
-    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+(total_rest_acc/9))/4)/num_samples)*100
+    total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
 
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, (total_rest_acc/(num_samples*9))*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
 
 
 def classification_train(net, tr_loader, val_loader, optimizer, writer,
