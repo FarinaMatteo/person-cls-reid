@@ -6,9 +6,9 @@ from torchvision.transforms import Compose
 from models.custom import DeepAttentionClassifier
 from functions import get_transforms
 
-COLUMN_NAMES = ["filename", "age", "backpack", "bag", "handbag",
-                "clothes", "down", "up", "hair", "hat",
-                "gender", "upperbody color", "lowerbody color"]
+COLUMN_NAMES = ["id", "age", "backpack", "bag", "handbag", "clothes", "down", "up", "hair", "hat", "gender",
+                "upblack", "upwhite", "upred", "uppurple", "upyellow", "upgray", "upblue", "upgreen", "upmulticolor",
+                "downblack", "downwhite", "downpink", "downpurple", "downyellow", "downgray", "downblue", "downgreen", "downbrown", "downmulticolor"]
 
 
 def inference(model_path="networks/attention_net/model.pth", out="classification_test.csv", 
