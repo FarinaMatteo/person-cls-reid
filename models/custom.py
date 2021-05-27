@@ -76,9 +76,6 @@ class DeepAttentionClassifier(nn.Module):
         # we then need attention maps for the first attention branches
         self.upperbody_attn1 = AttentionModule(in_channels=512)
         self.lowerbody_attn1 = AttentionModule(in_channels=512)
-        # 2nd branch attention maps
-        self.upperbody_attn2 = AttentionModule(in_channels=512)
-        self.lowerbody_attn2 = AttentionModule(in_channels=512)
         
         # and stacked mlp classifiers for both upperbody and lowerbody
         self.upperbody_mlp = nn.Sequential(
@@ -114,9 +111,6 @@ class DeepAttentionClassifier(nn.Module):
         # first attention branch on upperbody
         up_attn1 = self.upperbody_attn1(x)
         x_up = x * (1 + up_attn1)  # hadamard product with the use of broadcasting
-        # second attention branch on upperbody
-        up_attn2 = self.upperbody_attn2(x_up)
-        x_up = x_up * (1 + up_attn2)
         # multi layer perceptron for upperbody attribute classification
         x_up = self.adaptive_avg_pool_2d(x_up)  # dimensionality reduction
         x_up = x_up.view(x_up.shape[0], -1)  # flattening
@@ -125,9 +119,6 @@ class DeepAttentionClassifier(nn.Module):
         # first attention branch on lowerbody clothing
         down_attn1 = self.lowerbody_attn1(x)
         x_down = x * (1 + down_attn1)
-        # second attention branch on lowerbody clothing
-        down_attn2 = self.lowerbody_attn2(x_down)
-        x_down = x_down * (1 + down_attn2)
         # multi-layer perceptron for lowerbody attribute classification
         x_down = self.adaptive_avg_pool_2d(x_down)
         x_down = x_down.view(x_down.shape[0], -1)
