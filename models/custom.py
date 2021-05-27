@@ -13,7 +13,7 @@ class AttentionModule(nn.Module):
     # shape. Finally, softmax is applied in order to provide a distribution over all the grid locations that
     # should serve as the Attention Map.
 
-    def __init__(self, in_channels, n_steps=1):
+    def __init__(self, in_channels, n_steps=2):
         super(AttentionModule, self).__init__()
         self.upsamples = []
         self.downsamples = []
@@ -62,10 +62,6 @@ class DeepAttentionClassifier(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.7),
             nn.Linear(in_features=256, out_features=4),
-            # nn.BatchNorm1d(num_features=128),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.7),
-            # nn.Linear(in_features=128, out_features=4),
             nn.Sigmoid()
         )
         # from here, also initialize binary attribute classifier (basic mlp)
@@ -75,10 +71,6 @@ class DeepAttentionClassifier(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.4),
             nn.Linear(in_features=256, out_features=9),
-            # nn.BatchNorm1d(num_features=128),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.4),
-            # nn.Linear(in_features=128, out_features=9),
             nn.Sigmoid()
         )
         # we then need attention maps for the first attention branches
@@ -95,10 +87,6 @@ class DeepAttentionClassifier(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.7),
             nn.Linear(in_features=256, out_features=9),
-            # nn.BatchNorm1d(num_features=128),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.7),
-            # nn.Linear(in_features=128, out_features=9),
             nn.Sigmoid()
         )
         self.lowerbody_mlp = nn.Sequential(
@@ -107,10 +95,6 @@ class DeepAttentionClassifier(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.8),
             nn.Linear(in_features=256, out_features=10),
-            # nn.BatchNorm1d(num_features=128),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.8),
-            # nn.Linear(in_features=128, out_features=10),
             nn.Sigmoid()
         )
 
