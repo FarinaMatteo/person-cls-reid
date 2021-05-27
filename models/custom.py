@@ -1,4 +1,5 @@
 import torch
+import logging
 import torchvision
 import torch.nn as nn
 from collections import OrderedDict
@@ -6,12 +7,19 @@ from collections import OrderedDict
 
 class AttentionModule(nn.Module):
 
-    # performs an up- and down- sampling by means of convolutional layers,
-    # resulting in the same size as the original input.
-    # up-sampling (transposed convolution) is applied first, then its output is activated
-    # with a sigmoid. Afterwards, downsampling is performed in order to reshape tensors back to their original
-    # shape. Finally, softmax is applied in order to provide a distribution over all the grid locations that
-    # should serve as the Attention Map.
+    r""" The implementation is (partially) based on https://arxiv.org/pdf/1704.06904.pdf
+    This module performs an up- and down- sampling of an input feature map with shape (B, C, H, W) by means of convolutional layers,
+    resulting in the same shape as the original input.
+    
+    Up-sampling (transposed convolution) is applied first, then its output is activated
+    with a tanh. Afterwards, downsampling is performed in order to reshape tensors back to their original
+    shape.
+    Channels are reduced as upsampling is applied, and increased back to the original number when convolving. This
+    is to control any excessive increase in the total number of parameters.
+    Finally, softmax is applied in order to provide a distribution over all the grid locations that
+    should serve as the Attention Map. If a +1 is added to this map, then it becomes 'residual'. 
+    
+    The number of transposed and traditional convolutions applied to build the map is represented by :param n_steps:.  """
 
     def __init__(self, in_channels, n_steps=2):
         super(AttentionModule, self).__init__()
@@ -129,6 +137,7 @@ class DeepAttentionClassifier(nn.Module):
         return y
 
     def inference(self, x):
+        """Performs inference for the classification task of the project."""
         preds = self(x)
         age_preds = preds[:, :4]
         age_preds = torch.argmax(age_preds, dim=1, keepdim=True)
@@ -140,20 +149,33 @@ class DeepAttentionClassifier(nn.Module):
         return torch.cat(tensors=(age_preds, independent_preds, up_preds, down_preds), dim=1) + 1
 
     def encode(self, x):
-        
+        """Performs feature extraction, projecting images onto a lower dimensional space (512 features). 
+        Use this method for the reidentification task"""
         feat_map = self.backbone(x)
-        feature_vec = self.adaptive_avg_pool_2d(feat_map).squeeze()
-        return feature_vec
+        feat_vec = self.adaptive_avg_pool_2d(feat_map).squeeze()
+        return feat_vec
 
 
 if __name__ == "__main__":
     import os
+    import sys
+    # silly check
+    cwd = os.getcwd()
+    if "models" in cwd.split("/"):
+        logging.error("Run this script from the root folder of the project.\nChange directory to 'person-cls-reid' and run 'python models/custom.py'.")
+        sys.exit(0)
+
+    # read the first image inside 'train_directory'. 
     file_list = os.listdir("train_directory/")
     first_file = os.path.join("train_directory", file_list[0])
     img_tensor = torchvision.io.read_image(first_file)/255
     img_tensor = img_tensor.unsqueeze(dim=0)
+
+    # initialize the classifier
     deep_classifier = DeepAttentionClassifier(pretrained=True)
 
-    print(img_tensor.shape)
+    # perform feature extraction using the classifier, outputting a single 1d vector of 512 features.
+    # NOTE: REMEMBER TO PUT THE MODEL IN EVALUATION MODE WHEN EXTRACTING EMBEDDINGS FROM TENSORS!
+    deep_classifier.eval()
     embedding = deep_classifier.encode(img_tensor)
-    print(embedding.shape)
+    print("The shape of the extracted feature vector is: ", embedding.shape)
