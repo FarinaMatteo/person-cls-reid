@@ -164,10 +164,21 @@ class DeepAttentionClassifier(nn.Module):
         # down_preds = torch.argmax(down_preds, dim=1, keepdim=True)
         return torch.cat(tensors=(age_preds, independent_preds, up_preds, down_preds), dim=1) + 1
 
+    def encode(self, x):
+        
+        feat_map = self.backbone(x)
+        feature_vec = self.adaptive_avg_pool_2d(feat_map).squeeze()
+        return feature_vec
+
 
 if __name__ == "__main__":
-    img_tensor = torchvision.io.read_image("train_directory/0002_c3_027735928.jpg")/255
+    import os
+    file_list = os.listdir("train_directory/")
+    first_file = os.path.join("train_directory", file_list[0])
+    img_tensor = torchvision.io.read_image(first_file)/255
     img_tensor = img_tensor.unsqueeze(dim=0)
     deep_classifier = DeepAttentionClassifier(pretrained=True)
-    deep_classifier(img_tensor)
-    
+
+    print(img_tensor.shape)
+    embedding = deep_classifier.encode(img_tensor)
+    print(embedding.shape)
