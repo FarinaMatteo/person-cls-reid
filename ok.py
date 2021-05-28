@@ -1,7 +1,4 @@
-from os import fchmod, read
 import numpy as np
-import numpy as np
-from numpy.core.fromnumeric import shape
 import torch
 from kmeans_pytorch import kmeans
 import pandas as pd
@@ -9,7 +6,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from torchvision import transforms
 from functions import flatten_folder
 import os
-import re
 import shutil
 import glob
 import random
@@ -79,35 +75,12 @@ with torch.no_grad():
         img_tensor = read_image(image_path)/255
         img_tensor = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(img_tensor)
         img_tensor = img_tensor.unsqueeze(dim=0)
+        if torch.cuda.is_available():
+            img_tensor = img_tensor.to("cuda:0")
         feature_vec = model.encode(img_tensor).tolist()
         X.append(feature_vec)
 
 print(len(X), len(X[0]))
-
-# # # for each image inside the specified folder save the respective ID and NAME of the image eg: 0009_c4_0963839.jpg
-# for filename in glob.glob("/Users/elia/Desktop/person-cls-reid/validation_directory/*.jpg"):
-#     with open(filename, 'r') as f:
-#         row = {}
-
-#         # keeping only the image name without the path
-#         filename = str(filename.replace("dataset/train/",""))
-#         row["name"]= filename
-
-#         # Keeping only the ID
-#         filename = re.sub(r'_.*',"",filename)
-
-#         # Add the id to the ID's list
-#         random_list.append(filename)
-        
-#         row["id"] = filename
-        
-#         # save each couple ID- NAME(image) into a DataFrame
-#         df = df.append(row, ignore_index=True)
-    
-#     i += 1
-#     if max_images and i==max_images:
-#         print("Reached the {} limit, no further images will be placed in the dataset folder".format(max_images))
-#         break
 
 '''
 datasize = number of images
@@ -137,7 +110,7 @@ x = torch.Tensor(X)
 K-Means ALGORITHM'''
 
 cluster_ids_x, cluster_centers = kmeans(
-    X=x, num_clusters=num_clusters, distance='euclidean'
+    X=x, num_clusters=num_clusters, distance='euclidean', device="cuda:0"
 )
 
 print((cluster_centers))
@@ -156,7 +129,6 @@ the original images'''
 
 df1 = pd.DataFrame(data=x, columns=["cluster"])
 df1["index"] = df1.index
-#print(df1)
 
 '''Merge to retrieve the name of the images'''
 
@@ -166,65 +138,82 @@ print(mergedDf)
 
 '''
 image query '''
-con = np.random.randint(5, size=25)
 
-# similarities = cosine_similarity([con], cluster_centers)
-# print(similarities, max(similarities[0]))
+accuracy_list = []
 
-images = []
-clusters = []
-simm = []
-
-''' cosine similary among the query attributes 
-and each image in the matrix X'''
-from sklearn.metrics.pairwise import cosine_similarity
-for i in range (len(mergedDf)):
-    ##retriving list of attribute of row i
-    v = mergedDf.iloc[i,1:-1].to_list()
-
-    ##retriving the cluster of attributes' row i
-    cluster =  mergedDf.iloc[i,0]
-
-    ##retriving the image's name
-    image = mergedDf.iloc[i,-1]
-    #print(v)
-    #print(len(v))
-
-    ##caltulating COSINE-SIMILARTY BETWEEN QUERY'S ATTRIBUTES AND IMAGES OF ROW I ATTRIBUTES
-    diff = cosine_similarity([v], [con])
-    diff = diff.tolist()
-    f = diff[0][0]
-    print(f)
-    #print(type(diff))
-    #print(f)
-
-    images.append(image)
-    simm.append(f)
-    clusters.append(cluster)
-
-'''creating the final DataFrame to match all together'''
-final = pd.DataFrame()
-final["simm"] = simm
-final["cluster"] = clusters
-final["image"] = images
-
-final.to_csv("final.csv", index=False)
-
-'''
-Calculating the mean the cosine similarty between query image and images grouping by cluster'''
-new_final = final
-new_final = new_final.groupby(["cluster"])["simm"].mean().reset_index()
-new_final.to_csv("final_1.csv", index=False)
-
-'''searching the cluster with the higher mean'''
-c = new_final["simm"].argmax()
-print(type(c))
-print("c-> "+ str(c))
+for query in queries:
+    con = read_image(query)/255
+    con = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(con)
+    with torch.no_grad():
+        con = con.unsqueeze(dim=0).to("cuda:0")
+        con = model.encode(con).squeeze().cpu().numpy()
 
 
-'''retrive all the image of the cluster previously obtained'''
+    images = []
+    clusters = []
+    simm = []
 
-final["cluster"] = final["cluster"].apply(str)
-im = final[final["cluster"] == str(c)]
-im = im["image"].to_list()
-print(im)
+    ''' cosine similary among the query attributes 
+    and each image in the matrix X'''
+    for i in range (len(mergedDf)):
+        ##retriving list of attribute of row i
+        v = mergedDf.iloc[i,1:-1].to_list()
+
+        ##retriving the cluster of attributes' row i
+        cluster =  mergedDf.iloc[i,0]
+
+        ##retriving the image's name
+        image = mergedDf.iloc[i,-1]
+        #print(v)
+        #print(len(v))
+
+        ##caltulating COSINE-SIMILARTY BETWEEN QUERY'S ATTRIBUTES AND IMAGES OF ROW I ATTRIBUTES
+        diff = cosine_similarity([v], [con])
+        diff = diff.tolist()
+        f = diff[0][0]
+        #print(type(diff))
+        #print(f)
+
+        images.append(image)
+        simm.append(f)
+        clusters.append(cluster)
+
+    '''creating the final DataFrame to match all together'''
+    final = pd.DataFrame()
+    final["simm"] = simm
+    final["cluster"] = clusters
+    final["image"] = images
+
+    final.to_csv("final.csv", index=False)
+
+    '''
+    Calculating the mean the cosine similarity between query image and images grouping by cluster'''
+    new_final = final
+    new_final = new_final.groupby(["cluster"])["simm"].mean().reset_index()
+    new_final.to_csv("final_1.csv", index=False)
+
+    '''searching the cluster with the higher mean'''
+    c = new_final["simm"].argmax()
+    print(type(c))
+    print("c-> "+ str(c))
+
+    '''retrive all the image of the cluster previously obtained'''
+
+    final["cluster"] = final["cluster"].apply(str)
+    im = final[final["cluster"] == str(c)]
+    im = im["image"].to_list()
+    print(im)
+
+    im = [os.path.basename(filename).split("_")[0] for filename in im]
+    query_id = os.path.basename(query).split("_")[0]
+    counts = 0
+    for idx in im:
+        if query_id == idx: counts+=1
+    acc = counts/len(im)
+    print("Accuracy for id {}: {:.2f}".format(query_id, acc))
+    accuracy_list.append(acc)
+
+def avg_lst(lst):
+    return sum(lst) / len(lst)
+
+print("Average accuracy with eucliedean distance: {:.2f}".format(avg_lst(accuracy_list)))
