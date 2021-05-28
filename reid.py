@@ -5,7 +5,7 @@ import torch
 import torchvision
 import torch.nn as nn
 
-def extract_features():
+def extract_features(path):
     # silly check
     #cwd = os.getcwd()
     #if "models" in cwd.split("/"):
@@ -13,11 +13,11 @@ def extract_features():
     #    sys.exit(0)
 
     # read images from 'train_directory'. 
-    file_list = os.listdir("train_directory/")
+    file_list = os.listdir(path)
 
     features = []
     for i in file_list:
-        image = os.path.join("train_directory", i)
+        image = os.path.join(path, i)
         img_tensor = torchvision.io.read_image(image)/255
         img_tensor = img_tensor.unsqueeze(dim=0)
 
@@ -28,11 +28,12 @@ def extract_features():
         # NOTE: REMEMBER TO PUT THE MODEL IN EVALUATION MODE WHEN EXTRACTING EMBEDDINGS FROM TENSORS!
         deep_classifier.eval()
         embedding = deep_classifier.encode(img_tensor)
-        features.append(embedding)  
+        features.append(embedding)
 
     return features
 
-extract_features()
+
+extract_features("validation_directory/")
 
 
 
