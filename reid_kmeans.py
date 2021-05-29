@@ -11,6 +11,27 @@ import glob
 import random
 from models.custom import DeepAttentionClassifier
 from torchvision.io import read_image
+from split import split
+from evaluator import Evaluator
+
+def ground_truth():
+    queries_list = os.listdir("reid_queries/")
+    reid_list = os.listdir("reid_validation/")
+
+
+    ground_truth = {}
+
+    for query in queries_list:
+        id = query[:4]
+        list=[]
+        for reid in reid_list:
+            if reid.startswith(id):
+                ground_truth[query]=list
+                ground_truth[query].append(reid)
+
+    return ground_truth
+
+split(max_images=100)
 
 val_dir = "validation_directory"
 reid_queries_dir = "reid_queries"
@@ -42,6 +63,7 @@ except FileExistsError as exc:
 file_list = glob.glob(val_dir + "/*.jpg")
 random.shuffle(file_list)
 
+
 for i in range(int(len(file_list)*0.75)):
     filepath = file_list[i]
     dst_path = os.path.join(reid_val_dir, os.path.basename(filepath))
@@ -54,12 +76,14 @@ for i in range(int(len(file_list)*0.75)+1, len(file_list)):
 
 queries = glob.glob(reid_queries_dir + "/*.jpg")
 reid_images = glob.glob(reid_val_dir + "/*.jpg")
-print(reid_images)
+
 reid_identities = len(set([os.path.basename(filename).split("_")[0] for filename in reid_images]))
 print("Number of identities:", reid_identities)
 
+
 model = DeepAttentionClassifier(pretrained=False)
 weights_path = "networks/model.pth"
+#weights_path = "networks/1updown_residual-attention_net_avg-loss_5000/model.pth"
 # load the model
 if torch.cuda.is_available():
     model.load_state_dict(torch.load(weights_path))
@@ -67,6 +91,7 @@ if torch.cuda.is_available():
 else:
     model.load_state_dict(torch.load(weights_path, map_location=torch.device("cpu")))
 model.eval()
+
 
 X = []
 with torch.no_grad():
@@ -100,9 +125,12 @@ Matrix x(NXM)
 '''
 DataFrame where linked each row(image) with its name.jpeg'''
 
+
+
 df = pd.DataFrame(data=X)
-df["index"] = df.index
+df["index"] = df.index 
 df["name_image"] = reid_images
+
 
 x = torch.Tensor(X)
 
@@ -113,15 +141,14 @@ cluster_ids_x, cluster_centers = kmeans(
     X=x, num_clusters=num_clusters, distance='euclidean', device="cuda:0"
 )
 
-print((cluster_centers))
-print(cluster_centers.shape)
+#print((cluster_centers))
+#print(cluster_centers.shape)
 
 # print(type(cluster_centers))
 # print(type(cluster_ids_x))
-#print(x.shape)
+
+
 x = cluster_ids_x.tolist()
-#print(x)
-#print(len(x))
 
 '''
 Inizialing a DataFrame in order to merge it afterwards in order to keep track of 
@@ -140,13 +167,15 @@ print(mergedDf)
 image query '''
 
 accuracy_list = []
+preds = {}
 
 for query in queries:
     con = read_image(query)/255
     con = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(con)
     with torch.no_grad():
+        #con = con.unsqueeze(dim=0)
         con = con.unsqueeze(dim=0).to("cuda:0")
-        con = model.encode(con).squeeze().cpu().numpy()
+        con = model.encode(con).squeeze().cpu().numpy()  #feature vector of our query image
 
 
     images = []
@@ -164,56 +193,69 @@ for query in queries:
 
         ##retriving the image's name
         image = mergedDf.iloc[i,-1]
-        #print(v)
-        #print(len(v))
 
         ##caltulating COSINE-SIMILARTY BETWEEN QUERY'S ATTRIBUTES AND IMAGES OF ROW I ATTRIBUTES
         diff = cosine_similarity([v], [con])
-        diff = diff.tolist()
         f = diff[0][0]
-        #print(type(diff))
-        #print(f)
 
         images.append(image)
         simm.append(f)
         clusters.append(cluster)
 
-    '''creating the final DataFrame to match all together'''
+    '''creating the final DataFrame to match all together for each query image'''
     final = pd.DataFrame()
     final["simm"] = simm
     final["cluster"] = clusters
     final["image"] = images
 
-    final.to_csv("final.csv", index=False)
+    #print(final)
+
+    #final.to_csv("final.csv", index=False)
 
     '''
     Calculating the mean the cosine similarity between query image and images grouping by cluster'''
     new_final = final
     new_final = new_final.groupby(["cluster"])["simm"].mean().reset_index()
-    new_final.to_csv("final_1.csv", index=False)
+    #print(new_final)
+    #new_final.to_csv("final_1.csv", index=False)
 
     '''searching the cluster with the higher mean'''
     c = new_final["simm"].argmax()
-    print(type(c))
-    print("c-> "+ str(c))
+    #print("c-> "+ str(c))
+
 
     '''retrive all the image of the cluster previously obtained'''
-
     final["cluster"] = final["cluster"].apply(str)
     im = final[final["cluster"] == str(c)]
-    im = im["image"].to_list()
-    print(im)
+    
+    im = im.sort_values("simm", ascending=False) #order images in the closest cluster
+    im = im["image"].to_list()  
+    im = [os.path.basename(filename) for filename in im]
+    query_id = os.path.basename(query)
+    
+    preds[query_id] = im 
+    
+    # counts = 0
+    # for idx in im:
+    #     if query_id == idx: counts+=1
+    # acc = counts/len(im)
+    # print("Accuracy for id {}: {:.2f}".format(query_id, acc))
+    # accuracy_list.append(acc)
 
-    im = [os.path.basename(filename).split("_")[0] for filename in im]
-    query_id = os.path.basename(query).split("_")[0]
-    counts = 0
-    for idx in im:
-        if query_id == idx: counts+=1
-    acc = counts/len(im)
-    print("Accuracy for id {}: {:.2f}".format(query_id, acc))
-    accuracy_list.append(acc)
 
-def avg_lst(lst):
-    return sum(lst) / len(lst)
+gt = ground_truth()
+print(preds)
+print("\n\n",gt)
 
-print("Average accuracy with eucliedean distance: {:.2f}".format(avg_lst(accuracy_list)))
+
+
+
+
+map = Evaluator.evaluate_map(preds, gt)
+
+print(map)
+#def avg_lst(lst):
+#    return sum(lst) / len(lst)
+
+#print("Average accuracy with eucliedean distance: {:.2f}".format(avg_lst(accuracy_list)))
+
