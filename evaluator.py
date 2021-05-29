@@ -54,12 +54,13 @@ class Evaluator:
 if __name__ == "__main__":
 
     predictions = {
-        "a": ["a", "bb", "c", "l"],
-        "f": ["f", "gg", "h"]
+        "a": ["b", "s", "c"],
+        "f": ["f", "g", "h"],
+        "s": ["r","r"]
     }
 
     ground_truth = {
-        "a": set(["a", "b", "c"]),
+        "a": set(["d", "b", "c"]),
         "f": set(["f", "g", "h"])
     }
 
