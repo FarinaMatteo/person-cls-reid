@@ -157,4 +157,3 @@ def split(train_split=0.8, max_images=None):
     int_df.to_csv('csv_files/validation_label.csv',index=False)
 
 
-split()

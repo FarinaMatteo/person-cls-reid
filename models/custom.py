@@ -139,6 +139,7 @@ class DeepAttentionClassifier(nn.Module):
     def inference(self, x):
         """Performs inference for the classification task of the project."""
         preds = self(x)
+        
         age_preds = preds[:, :4]
         age_preds = torch.argmax(age_preds, dim=1, keepdim=True)
         independent_preds = preds[:, 4:13].round()
