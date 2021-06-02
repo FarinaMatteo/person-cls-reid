@@ -1,3 +1,5 @@
+from numpy.lib.function_base import select
+from scipy.cluster.hierarchy import centroid
 import torch
 from kmeans_pytorch import kmeans
 import pandas as pd
@@ -43,6 +45,7 @@ def main(cluster_type="hierarchical", max_images=None):
     reid_queries_dir = "reid_queries"
     reid_galley_dir = "reid_gallery"
     flatten_folder(val_dir)
+
 
     try:
         shutil.rmtree(reid_galley_dir+"/")
@@ -96,7 +99,7 @@ def main(cluster_type="hierarchical", max_images=None):
     model = DeepAttentionClassifier(pretrained=False)
     weights_path = "networks/model.pth"
 
-    # load the model
+    #load the model
     if torch.cuda.is_available():
         model.load_state_dict(torch.load(weights_path))
         model = model.to("cuda:0")
@@ -107,7 +110,7 @@ def main(cluster_type="hierarchical", max_images=None):
 
     X = []
     with torch.no_grad():
-        #for each image in the gallery folder produce the feature vector
+        # for each image in the gallery folder produce the feature vector
         for i, image_path in enumerate(reid_images):
             img_tensor = read_image(image_path)/255
             img_tensor = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(img_tensor)
@@ -145,78 +148,79 @@ def main(cluster_type="hierarchical", max_images=None):
         cluster_ids_x, _ = kmeans(X=x, num_clusters=num_clusters, distance='euclidean', device="cpu")
         x = cluster_ids_x.tolist()
 
+
     #Inizialing a DataFrame in order to merge it afterwards in order to keep track of the original images
     df1 = pd.DataFrame(data=x, columns=["cluster"])
     df1["index"] = df1.index
-
+    
     #Merge to retrieve the name of the images
     mergedDf = df1.merge(df, left_on='index', right_on='index')
     del mergedDf["index"]
+
+    #compute the centroid for each cluster
+    centroids = {}
+    for i in range(num_clusters):
+        cluster = mergedDf[mergedDf["cluster"]==i]
+        del cluster["cluster"]
+        del cluster["name_image"]
+        cluster_centroids = cluster.mean(axis=0)
+        cluster_centroids = cluster_centroids.to_list()
+        centroids[str(i)] = cluster_centroids
 
     accuracy_list = []
     preds = {}
 
     for query in queries:
-        #for each image in the gallery folder produce the feature vector
-        con = read_image(query)/255
-        con = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(con)
+        # for each image in the gallery folder produce the feature vector
+        query_features = read_image(query)/255
+        query_features = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])(query_features)
         with torch.no_grad():
-            con = con.unsqueeze(dim=0)
+            query_features = query_features.unsqueeze(dim=0)
             if torch.cuda.is_available():
-                con = con.to("cuda:0")
-            con = model.encode(con).tolist()
-            # if torch.cuda.is_available():
-                # con = con.to("cpu")
-            
+                query_features = query_features.to("cuda:0")
+            query_features = model.encode(query_features).tolist()
+
+        #cosine similary among the query attributes and each centroid, to select the best cluster
+        max = 0
+        for i in range(num_clusters):
+            similarity = cosine_similarity([query_features], [centroids[str(i)]])
+            similarity = similarity[0][0]
+
+            if similarity > max:
+                max = similarity
+                best_cluster = i
+
+        #images only in the best cluster
+        selected_images = mergedDf[mergedDf["cluster"]==best_cluster]
 
         images = []
-        clusters = []
         simm = []
-
-        #cosine similarity between the query features and each image in the gallery folder
-        for i in range (len(mergedDf)):
-            #retriving list of attributes of row i
-            v = mergedDf.iloc[i,1:-1].to_list()
-
-            #retriving the cluster of row i
-            cluster =  mergedDf.iloc[i,0]
+        for i in range (len(selected_images)):
+            #retriving list of attribute of row i
+            v = selected_images.iloc[i,1:-1].to_list()
 
             #retriving the image's name
-            image = mergedDf.iloc[i,-1]
+            image = selected_images.iloc[i,-1]
 
-            #caltulating cosine similarity between query image and the features of row i
-            diff = cosine_similarity([v], [con])
-            f = diff[0][0]
+            #caltulating cosine similarity between query attributes and cluster images
+            similarity = cosine_similarity([v], [query_features])
+            similarity = similarity[0][0]
 
             images.append(image)
-            simm.append(f)
-            clusters.append(cluster)
+            simm.append(similarity)
 
         #creating the final DataFrame
         final = pd.DataFrame()
         final["simm"] = simm
-        final["cluster"] = clusters
+        final["cluster"] = best_cluster
         final["image"] = images
 
-        
-        #Calculating the mean the cosine similarity between query image and images grouping by cluster
-        new_final = final
-        new_final = new_final.groupby(["cluster"])["simm"].mean().reset_index()
-
-        #select the cluster with higher mean
-        c = new_final["simm"].argmax()
-
-        #retrive all the image of the cluster previously obtained
-        final["cluster"] = final["cluster"].apply(str)
-        im = final[final["cluster"] == str(c)]
-        
         #order images in the closest cluster
-        im = im.sort_values("simm", ascending=False) 
+        final = final.sort_values(by="simm", ascending=False)
+        im = final["image"].to_list()
 
-        #list of images in the selected cluster
-        im = im["image"].to_list()  
         im = [os.path.basename(filename) for filename in im]
-
+        
         query_im = os.path.basename(query)
         query_idx = query_im.split("_")[0]
 
@@ -227,9 +231,9 @@ def main(cluster_type="hierarchical", max_images=None):
         counts = 0
         for image in im:
             idx = image.split("_")[0]
-            if query_idx == idx: 
+            if query_idx == idx:
                 counts+=1
-        acc = counts/len(im)
+        acc = counts/len(im)     
         print("Accuracy for id {}: {:.2f}".format(query_idx, acc))
         accuracy_list.append(acc)
 
@@ -240,9 +244,10 @@ def main(cluster_type="hierarchical", max_images=None):
 
     #computes the mAP of the predictions with respect to the given ground truth
     map = Evaluator.evaluate_map(preds, gt)
-    print("mAP: {:.2f}".format(map))
+    print(map)
 
+    #
     print("Average accuracy with euclidean distance: {:.2f}".format(avg_lst(accuracy_list)))
 
 if __name__ == "__main__":
-    main(cluster_type="hierarchical", max_images=3000)
+    main(cluster_type="hierarchical")

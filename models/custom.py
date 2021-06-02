@@ -153,8 +153,9 @@ class DeepAttentionClassifier(nn.Module):
         """Performs feature extraction, projecting images onto a lower dimensional space (512 features). 
         Use this method for the reidentification task"""
         feat_map = self.backbone(x)
-        feat_vec = self.adaptive_avg_pool_2d(feat_map).squeeze()
-        return feat_vec
+        feat_vec = self.adaptive_avg_pool_2d(feat_map).squeeze().unsqueeze(0)
+        y = self(x)
+        return torch.cat(tensors=(feat_vec, y), dim=1).squeeze()
 
 
 if __name__ == "__main__":
