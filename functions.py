@@ -127,6 +127,25 @@ class CustomImageDataset(torch.utils.data.Dataset):
             return img, label
 
 
+class ClassificationDataset(torch.utils.data.Dataset):
+    def __init__(self, img_dir, transform):
+        super(ClassificationDataset,self).__init__()
+        self.img_dir = img_dir
+        self.transform = transform
+        self.img_list = os.listdir(self.img_dir)
+        
+    def __len__(self):
+        return len(self.img_list)
+
+    def __getitem__(self, idx):
+        # load the tensor image using cached files
+        img_path = self.img_list[idx]
+        img = read_image(os.path.join(self.img_dir, img_path))/255.0
+        
+        if self.transform:
+            img = self.transform(img)
+        
+        return img, img_path
 
 
 # END Functions -------------------------------------------------------------

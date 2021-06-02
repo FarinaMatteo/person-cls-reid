@@ -118,7 +118,7 @@ class DeepAttentionClassifier(nn.Module):
 
         # first attention branch on upperbody
         up_attn1 = self.upperbody_attn1(x)
-        x_up = x * (1 + up_attn1)  # hadamard product with the use of broadcasting
+        x_up = x * (1 + up_attn1)  # hadamard product
         # multi layer perceptron for upperbody attribute classification
         x_up = self.adaptive_avg_pool_2d(x_up)  # dimensionality reduction
         x_up = x_up.view(x_up.shape[0], -1)  # flattening
