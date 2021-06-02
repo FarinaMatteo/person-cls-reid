@@ -81,9 +81,9 @@ def main(cluster_type="hierarchical", max_images=None):
         filepath = file_list[i]
         dst_path = os.path.join(reid_galley_dir, os.path.basename(filepath))
         for q in queries_list:
-          if os.path.basename(file_list[i]).split("_")[0]==q[:4]:
-              shutil.copy(filepath, dst_path)
-              break
+            if os.path.basename(file_list[i]).split("_")[0]==q[:4]:
+                shutil.copy(filepath, dst_path)
+                break
 
     
     queries = glob.glob(reid_queries_dir + "/*.jpg")
