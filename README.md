@@ -4,7 +4,7 @@ The goal of the project is to perform both *Classification* and *Re-Identificati
 
 
 ## Introduction  
-This README contains instructions on what is the main content of this repo and how to get your system up and running to execute the code.
+This **README** contains instructions on what is the main content of this repo and how to get your system up and running to execute the code.
   
 Furthermore, it contains every needed file for the final delivery:  
 - *classification_test.csv*: containing the output of the Attribute Recognition Pipeline on *dataset/test*;  
@@ -25,9 +25,12 @@ In order to train a classifier, launch the following command:
 This will generate a new `.pth` file inside *models* with the current experiment name (you can configure it in the last line of `train_classifier.py`, 
 in the `exp_name` argument of the `main` function.)
 
-In order to launch the attribute recognition pipeline using a pre-trained architecture (by default *networks/model.pth*), run the following:  
+In order to launch the attribute recognition pipeline using a pre-trained architecture (*)(by default *networks/model.pth*), run the following:  
 ```(your-env) $ python attribute_recognition.py```  
 This will generate a *classification_test.csv* file containing predictions for each image in *dataset/test*.
+
+(*) In order to execute the attribute recognition pipeline, you can use [these pretrained weights](https://drive.google.com/file/d/1Iyw54v5mWTEF5eM2TLuBTmKUnv0FZ4P3/view?usp=sharing).
+Please download them and place them as *networks/model.pth* (only available with a UniTN Google Account).
 
 ## Re-Identification Task
 Since no additional training procedure is involved, you can directly execute the Re-Identification pipeline provided that you have 
