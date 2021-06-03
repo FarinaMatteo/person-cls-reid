@@ -48,7 +48,6 @@ def inference(model_path="networks/model.pth", out="classification_test.csv", tr
             # update the dataframe with the current batch predictions
             preds_df = pd.DataFrame(preds, columns=COLUMN_NAMES)
             table = pd.concat([table, preds_df], axis=0)
- 
     # write the table on the filesystem
     table.to_csv(out, index=False)
 

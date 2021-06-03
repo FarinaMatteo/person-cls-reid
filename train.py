@@ -1,9 +1,10 @@
 import os
 import torch
 import torchvision
-import torch.nn.functional as F
 from functions import set_parameter_requires_grad
 from models.custom import DeepAttentionClassifier
+
+IND_ATTRS = ["backpack", "bag", "handbag", "clothes", "down", "up", "hair", "hat", "gender"]
 
 
 def initialize_alexnet(num_classes, feature_extracting=False):
@@ -87,7 +88,7 @@ def initialize_attention_classifier(pretrained=True, feature_extracting=True):
 
 def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
     assert optim_name in ("SGD", "RMSprop", "Adam")
-    assert net_name in ("alexnet", "densenet", "attentionnet") or net_name.startswith("resnet")
+    assert net_name in ("alexnet", "densenet", "attention_net") or net_name.startswith("resnet")
 
     # we will create two groups of weights, one for the newly initialized layer
     # and the other for rest of the layers of the network
@@ -99,7 +100,7 @@ def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
         if (name.startswith('classifier.6') and net_name == "alexnet") \
             or (name.startswith("fc") and net_name.startswith("resnet")) \
             or (name.startswith("classifier") and net_name == "densenet") \
-            or (name.startswith("backbone") and net_name == "attentionnet"):
+            or (name.startswith("backbone") and net_name == "attention_net"):
             final_layer_weights.append(param)
         else:
             rest_of_the_net_weights.append(param)
@@ -124,17 +125,17 @@ def get_optimizer(model, lr, wd, momentum, net_name, optim_name="SGD"):
         ], lr=lr/10, weight_decay=wd, momentum=momentum)
     
 
-def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0'):
+def train(net, loader, optimizer, weight_loss=True, avg_loss=False, device='cuda:0'):
     
-    assert not (norm_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
+    assert not (weight_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
     
-    num_samples = 0.0
-    total_loss = 0.0
+    num_samples = 0.
+    total_loss = 0.
     total_up_acc = 0.
     total_down_acc = 0.
     total_age_acc = 0.
+    total_ind_acc_dict = dict(zip(IND_ATTRS, [0.]*len(IND_ATTRS)))
     total_rest_acc = 0.
-    total_avg_acc = 0.
 
     # define loss functions to be used throughout the process
     ce_loss = torch.nn.CrossEntropyLoss()
@@ -166,29 +167,25 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         # compute the cross entropy loss for the first 4 predictions (age-related)
         age_preds = preds[:, :4]
         age_labels = labels[:, :4]
-        age_loss = bce_loss(age_preds, age_labels)
+        age_loss = ce_loss(age_preds, torch.argmax(age_labels, dim=1))
 
         # compute losses for the first 9 independent features
         independent_preds = preds[:, 4:13]
         independent_labels = labels[:, 4:13]
-        # normalize preds into 0-1 range with softmax
         ind_loss = bce_loss(independent_preds, independent_labels)
 
-        # compute losses for upper and lower body clothing color
         # upper body cross entropy loss
-        # up_labels = torch.argmax(labels[:, 10:19], dim=1)
         up_preds = preds[:, 13:22]
         up_labels = labels[:, 13:22]
-        up_ce_loss = bce_loss(up_preds, up_labels)
+        up_ce_loss = ce_loss(up_preds, torch.argmax(up_labels, dim=1))
 
         # lower body cross entropy loss
-        # down_labels = torch.argmax(labels[:, 19:], dim=1)
         down_preds = preds[:, 22:]
         down_labels = labels[:, 22:]
-        down_ce_loss = bce_loss(down_preds, down_labels)
+        down_ce_loss = ce_loss(down_preds, torch.argmax(down_labels, dim=1))
 
         # normalize loss based on settings
-        if norm_loss:
+        if weight_loss:
             loss = 0.375*up_ce_loss + 0.417*down_ce_loss + 0.041*ind_loss + 0.167*age_loss
         elif avg_loss:
             loss = (up_ce_loss + down_ce_loss + ind_loss + age_loss) / 4.0
@@ -205,31 +202,38 @@ def train(net, loader, optimizer, norm_loss=True, avg_loss=False, device='cuda:0
         # update stats
         num_samples += images.shape[0]
         total_loss += loss.item()
-        # update stats for accuracies (cross-entropy losses)
-        # total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
-        # total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
-        # total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
+
         # update stats for bc accuracy
         total_age_acc += age_preds.round().eq(age_labels).sum().item()/4.
         total_up_acc += up_preds.round().eq(up_labels).sum().item()/9.
         total_down_acc += down_preds.round().eq(down_labels).sum().item()/10.
         total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9.
+        for i, attr in enumerate(total_ind_acc_dict.keys()):
+            attr_preds = independent_preds[:, i]
+            attr_labels = independent_labels[:, i]
+            total_ind_acc_dict[attr] += attr_preds.round().eq(attr_labels).sum().item()
+
 
     total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
+    for k, v in total_ind_acc_dict.items():
+        v /= num_samples
+        v *= 100
+        total_ind_acc_dict[k] = v
 
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc, total_ind_acc_dict
 
 
-def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
+def test(net, loader, weight_loss=True, avg_loss=False, device="cuda:0"):
 
-    assert not (norm_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
+    assert not (weight_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
     
-    num_samples = 0.0
-    total_loss = 0.0
+    num_samples = 0.
+    total_loss = 0.
     total_up_acc = 0.
     total_down_acc = 0.
     total_age_acc = 0.
+    total_ind_acc_dict = dict(zip(IND_ATTRS, [0.]*len(IND_ATTRS)))
     total_rest_acc = 0.
 
     # define loss functions to be used throughout the process
@@ -265,29 +269,25 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
             # compute the cross entropy loss for the first 4 predictions (age-related)
             age_preds = preds[:, :4]
             age_labels = labels[:, :4]
-            age_loss = bce_loss(age_preds, age_labels)
+            age_loss = ce_loss(age_preds, torch.argmax(age_labels, dim=1))
 
             # compute losses for the first 9 independent features
             independent_preds = preds[:, 4:13]
             independent_labels = labels[:, 4:13]
-            # normalize preds into 0-1 range with softmax
             ind_loss = bce_loss(independent_preds, independent_labels)
 
-            # compute losses for upper and lower body clothing color
             # upper body cross entropy loss
-            # up_labels = torch.argmax(labels[:, 10:19], dim=1)
             up_preds = preds[:, 13:22]
             up_labels = labels[:, 13:22]
-            up_ce_loss = bce_loss(up_preds, up_labels)
+            up_ce_loss = ce_loss(up_preds, torch.argmax(up_labels, dim=1))
 
             # lower body cross entropy loss
-            # down_labels = torch.argmax(labels[:, 19:], dim=1)
             down_preds = preds[:, 22:]
             down_labels = labels[:, 22:]
-            down_ce_loss = bce_loss(down_preds, down_labels)
+            down_ce_loss = ce_loss(down_preds, torch.argmax(down_labels, dim=1))
 
             # normalize loss based on settings
-            if norm_loss:
+            if weight_loss:
                 loss = 0.375*up_ce_loss + 0.417*down_ce_loss + 0.041*ind_loss + 0.167*age_loss
             elif avg_loss:
                 loss = (up_ce_loss + down_ce_loss + ind_loss + age_loss) / 4.0
@@ -297,35 +297,40 @@ def test(net, loader, norm_loss=True, avg_loss=False, device="cuda:0"):
             # update stats for loss
             num_samples += images.shape[0]
             total_loss += loss.item()
-            # update stats for accuracies (cross-entropy losses)
-            # total_age_acc += torch.argmax(age_preds, dim=1).eq(age_labels).sum().item()
-            # total_up_acc += torch.argmax(up_preds, dim=1).eq(up_labels).sum().item()
-            # total_down_acc += torch.argmax(down_preds, dim=1).eq(down_labels).sum().item()
             # update stats for bc accuracy
             total_age_acc += age_preds.round().eq(age_labels).sum().item()/4.
             total_up_acc += up_preds.round().eq(up_labels).sum().item()/9.
             total_down_acc += down_preds.round().eq(down_labels).sum().item()/10.
             total_rest_acc += independent_preds.round().eq(independent_labels).sum().item()/9.
+            for i, attr in enumerate(total_ind_acc_dict.keys()):
+                attr_preds = independent_preds[:, i]
+                attr_labels = independent_labels[:, i]
+                total_ind_acc_dict[attr] += attr_preds.round().eq(attr_labels).sum().item()
 
     total_avg_acc = (((total_up_acc+total_down_acc+total_age_acc+total_rest_acc)/4)/num_samples)*100
 
+    for k, v in total_ind_acc_dict.items():
+        v /= num_samples
+        v *= 100
+        total_ind_acc_dict[k] = v
+
     return total_loss/num_samples, total_up_acc/num_samples*100, total_down_acc/num_samples*100,\
-        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc
+        total_age_acc/num_samples*100, total_rest_acc/num_samples*100, total_avg_acc, total_ind_acc_dict
 
 
 def classification_train(net, tr_loader, val_loader, optimizer, writer,
-                        scheduler_mode="min", norm_loss=True, avg_loss=False, 
+                        scheduler_mode="min", weight_loss=True, avg_loss=False, 
                         epochs=30, save_path="networks/baseline.pth", patience=5):
 
-    assert not (norm_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
+    assert not (weight_loss and avg_loss), "Loss Normalization and Loss Averaging are mutually exclusive.\nPlease select at most one of them."
     assert scheduler_mode in ("min", "max"), "Scheduler mode must be set either to 'min' or 'max'."
     
     # define the learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode=scheduler_mode, patience=patience//2)
     
     # check the random behaviour before training
-    training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc = test(net, tr_loader, norm_loss=norm_loss, avg_loss=avg_loss)
-    validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc = test(net, val_loader, norm_loss=norm_loss, avg_loss=avg_loss)
+    training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc, tr_acc_dict = test(net, tr_loader, weight_loss=weight_loss, avg_loss=avg_loss)
+    validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc, val_acc_dict = test(net, val_loader, weight_loss=weight_loss, avg_loss=avg_loss)
 
     # print data and add data to tensorboard for further monitoring
     print("=" * 100, "\n")
@@ -335,13 +340,19 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
     print("\tTrain Down Accuracy: {:.2f}".format(tr_down_acc))
     print("\tTrain Age Accuracy: {:.2f}".format(tr_age_acc))
     print("\tTrain Rest Accuracy: {:.2f}".format(tr_rest_acc))
+    for k, v in tr_acc_dict.items():
+        print("\tTrain {} Accuracy: {:.2f}".format(k, v))
     print("\tTrain Avg Accuracy: {:.2f}\n".format(tr_avg_acc))
+    
     print("\tValidation Loss: {:.4f}".format(validation_loss))
     print("\tValidation Up Accuracy: {:.2f}".format(val_up_acc))
     print("\tValidation Down Accuracy: {:.2f}".format(val_down_acc))
     print("\tValidation Age Accuracy: {:.2f}".format(val_age_acc))
     print("\tValidation Rest Accuracy: {:.2f}".format(val_rest_acc))
+    for k, v in val_acc_dict.items():
+        print("\tValidation {} Accuracy: {:.2f}".format(k, v))
     print("\tValidation Avg Acc: {:.2f}\n".format(val_avg_acc))
+
     writer.add_scalar("Loss/training", training_loss, 0)
     writer.add_scalar("Loss/validation", validation_loss, 0)
     writer.add_scalar("Accuracy/training/upperbody_accuracy", tr_up_acc, 0)
@@ -349,11 +360,16 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
     writer.add_scalar("Accuracy/training/age_accuracy", tr_age_acc, 0)
     writer.add_scalar("Accuracy/training/binary_accuracy_avg", tr_rest_acc, 0)
     writer.add_scalar("Accuracy/training/average_accuracy", tr_avg_acc, 0)
+    for k, v in tr_acc_dict.items():
+        writer.add_scalar(f"Accuracy/training/{k}_accuracy", v, 0)
+
     writer.add_scalar("Accuracy/validation/upperbody_accuracy", val_up_acc, 0)
     writer.add_scalar("Accuracy/validation/lowerbody_accuracy", val_down_acc, 0)
     writer.add_scalar("Accuracy/validation/age_accuracy", val_age_acc, 0)
     writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, 0)
     writer.add_scalar("Accuracy/validation/average_accuracy", val_avg_acc, 0)
+    for k, v in val_acc_dict.items():
+        writer.add_scalar(f"Accuracy/validation/{k}_accuracy", v, 0)
 
     # set variables needed for the Early Stopping mechanism
     es_epochs = 0
@@ -363,8 +379,8 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
     for e in range(epochs):
         
         # training and validation step
-        training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc = train(net, tr_loader, optimizer, norm_loss=norm_loss, avg_loss=avg_loss)
-        validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc = test(net, val_loader, norm_loss=norm_loss, avg_loss=avg_loss)
+        training_loss, tr_up_acc, tr_down_acc, tr_age_acc, tr_rest_acc, tr_avg_acc, tr_acc_dict = train(net, tr_loader, optimizer, weight_loss=weight_loss, avg_loss=avg_loss)
+        validation_loss, val_up_acc, val_down_acc, val_age_acc, val_rest_acc, val_avg_acc, val_acc_dict = test(net, val_loader, weight_loss=weight_loss, avg_loss=avg_loss)
         
         # use the scheduler to update the learning rate after the training step
         if scheduler_mode == "min":
@@ -381,12 +397,17 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
         print("\tTrain Down Accuracy: {:.2f}".format(tr_down_acc))
         print("\tTrain Age Accuracy: {:.2f}".format(tr_age_acc))
         print("\tTrain Rest Accuracy: {:.2f}".format(tr_rest_acc))
+        for k, v in tr_acc_dict.items():
+            print("\tTrain {} Accuracy: {:.2f}".format(k, v))
         print("\tTrain Avg Accuracy: {:.2f}\n".format(tr_avg_acc))
+        
         print("\tValidation Loss: {:.4f}".format(validation_loss))
         print("\tValidation Up Accuracy: {:.2f}".format(val_up_acc))
         print("\tValidation Down Accuracy: {:.2f}".format(val_down_acc))
         print("\tValidation Age Accuracy: {:.2f}".format(val_age_acc))
         print("\tValidation Rest Accuracy: {:.2f}".format(val_rest_acc))
+        for k, v in val_acc_dict.items():
+            print("\Validation {} Accuracy: {:.2f}".format(k, v))
         print("\tValidation Avg Acc: {:.2f}\n".format(val_avg_acc))
         writer.add_scalar("Loss/training", training_loss, e+1)
         writer.add_scalar("Loss/validation", validation_loss, e+1)
@@ -395,11 +416,17 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
         writer.add_scalar("Accuracy/training/age_accuracy", tr_age_acc, e+1)
         writer.add_scalar("Accuracy/training/binary_accuracy_avg", tr_rest_acc, e+1)
         writer.add_scalar("Accuracy/training/average_accuracy", tr_avg_acc, e+1)
+        for k, v in tr_acc_dict.items():
+            writer.add_scalar(f"Accuracy/training/{k}_accuracy", v, e+1)
+        
+        
         writer.add_scalar("Accuracy/validation/upperbody_accuracy", val_up_acc, e+1)
         writer.add_scalar("Accuracy/validation/lowerbody_accuracy", val_down_acc, e+1)
         writer.add_scalar("Accuracy/validation/age_accuracy", val_age_acc, e+1)
         writer.add_scalar("Accuracy/validation/binary_accuracy_avg", val_rest_acc, e+1)
         writer.add_scalar("Accuracy/validation/average_accuracy", val_avg_acc, e+1)
+        for k, v in val_acc_dict.items():
+            writer.add_scalar(f"Accuracy/validation/{k}_accuracy", v, e+1)
 
         # early stopping check, if no loss improvement with respect to the best loss value, update the counter
         if validation_loss >= best_loss:
@@ -420,5 +447,3 @@ def classification_train(net, tr_loader, val_loader, optimizer, writer,
             break
 
     return net
-
-

@@ -143,6 +143,3 @@ experiments
 
 # generated labels for training and validation sets
 csv_files/*.csv
-
-# project files
-classification_test.csv

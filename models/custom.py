@@ -144,9 +144,7 @@ class DeepAttentionClassifier(nn.Module):
         age_preds = torch.argmax(age_preds, dim=1, keepdim=True)
         independent_preds = preds[:, 4:13].round()
         up_preds = preds[:, 13:22].round()
-        # up_preds = torch.argmax(up_preds, dim=1, keepdim=True)
         down_preds = preds[:, 22:].round()
-        # down_preds = torch.argmax(down_preds, dim=1, keepdim=True)
         return torch.cat(tensors=(age_preds, independent_preds, up_preds, down_preds), dim=1) + 1
 
     def encode(self, x):

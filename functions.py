@@ -39,9 +39,8 @@ def group_folder(folder):
         # create new id directory if needed
         if cur_id not in ids:
             os.makedirs(os.path.join(folder, cur_id))
-        
         ids.append(cur_id)
-        # # move the current file in its directory group
+        # move the current file in its directory group
         shutil.move(src=f, dst=os.path.join(folder, cur_id, os.path.basename(f)))
 
     
@@ -194,8 +193,6 @@ def print_images(set, transformation , train):
     k = 0
     while k < len(set):
         values = set[k]
-        # print(len(values['image']))      
-        # print(values['image'])
         for i in range(len(values['image'])):
             plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             plt.show()       
@@ -207,7 +204,6 @@ def print_images(set, transformation , train):
             else:
                 k = k+1
         print("dataset" +str(k))
-    
     plt.close('all')
 
 
@@ -245,9 +241,6 @@ def plot_batch(set):
         for i in range(len(values['image'])):
             cv2.imshow(f"Image {i} of batch item {k}", np.transpose(values['image'][i].numpy(), (1, 2, 0)))
             cv2.waitKey(0)
-            # plt.imshow(np.transpose(values['image'][i].numpy(), (1, 2, 0)))
-            # plt.show()       
-
         k = k+1    
     plt.close('all')
     cv2.destroyAllWindows()

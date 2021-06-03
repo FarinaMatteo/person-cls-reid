@@ -1,13 +1,14 @@
-import torch
-from kmeans_pytorch import kmeans
-import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-from torchvision import transforms
+"""Run the person Re-ID pipeline of the project creating 'reid_test.txt'"""
 import os
-from models.custom import DeepAttentionClassifier
-from torchvision.io import read_image
-from sklearn.cluster import AgglomerativeClustering
 import glob
+import torch
+import pandas as pd
+from kmeans_pytorch import kmeans
+from torchvision import transforms
+from torchvision.io import read_image
+from models.custom import DeepAttentionClassifier
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics.pairwise import cosine_similarity
 
 def vec2str(vec):
   vec = [str(item) for item in vec]

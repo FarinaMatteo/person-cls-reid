@@ -1,4 +1,3 @@
-import os
 import torch
 from split import split
 from functions import *
@@ -10,9 +9,9 @@ from train import classification_train, initialize_alexnet,\
                   initialize_densenet, initialize_attention_classifier, get_optimizer
 
 
-def main(network="alexnet", batch_size=16, batch_mode="id", 
+def main(network="alexnet", batch_size=16, batch_mode="img", 
         train_mode="finetune", max_images=None, train_split=0.8, 
-        norm_loss=True, avg_loss=False, device="cuda:0", exp_name="baseline"):
+        weight_loss=True, avg_loss=False, device="cuda:0", exp_name="baseline"):
     
     assert batch_mode in ("id", "img")
     assert train_mode in ("finetune", "feature_extract")
@@ -69,7 +68,7 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
         net = initialize_resnet101(num_classes=32, feature_extracting=feature_extracting)
     elif network == "densenet":
         net = initialize_densenet(num_classes=32, feature_extracting=feature_extracting)
-    elif network == "attentionnet":
+    elif network == "attention_net":
         net = initialize_attention_classifier(pretrained=True, feature_extracting=feature_extracting)
     
     if device.startswith("cuda") and torch.cuda.is_available():
@@ -80,19 +79,16 @@ def main(network="alexnet", batch_size=16, batch_mode="id",
     
     summary(net, (3, 128, 64))
     classification_train(net, train_loader, val_loader, optimizer, writer, \
-                         norm_loss=norm_loss, avg_loss=avg_loss, epochs=100, save_path=f"networks/{exp_name}/model.pth", patience=5)
+                         weight_loss=weight_loss, avg_loss=avg_loss, epochs=100, save_path=f"networks/{exp_name}/model.pth", patience=5)
         
     print("=" * 100)
     print("\nTraining finished. Launch 'tensorboard --logdir=experiments' to monitor the learning curves.\n")
     return
-        
+
+
 if __name__ == "__main__":
-    
-    main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="finetune", 
-       norm_loss=False, avg_loss=True, max_images=5000, exp_name="1updown_residual-attention_net_avg-loss_5000")
-    
-    main(network="attentionnet", batch_size=128, batch_mode="img", train_mode="finetune", 
-       norm_loss=True, avg_loss=False, max_images=5000, exp_name="1updown_residual-attention_net_weighted-loss_5000")
+    main(network="attention_net", batch_size=128, batch_mode="img", train_mode="finetune", 
+        weight_loss=False, avg_loss=True, max_images=None, exp_name="final-experiment")
 
 
 
